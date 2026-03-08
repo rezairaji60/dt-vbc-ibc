@@ -1,0 +1,19 @@
+grid:
+  x_min: -1.5
+  x_max: 1.5
+  y_min: -1.5
+  y_max: 1.5
+  n_x: 81
+  n_y: 81
+initial_box:
+  x_lo: -0.35
+  x_hi: 0.10
+  y_lo: -0.25
+  y_hi: 0.20
+unsafe_box:
+  x_lo: 0.95
+  x_hi: 1.25
+  y_lo: 0.75
+  y_hi: 1.10
+alpha_forward: 0.95
+alpha_backward: 0.95
