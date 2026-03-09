@@ -20,14 +20,6 @@ This repository contains reproducible Python case studies for the paper:
 
 These examples are intentionally lightweight, reproducible, and easy to adapt to the final systems and figures used in the paper.
 
-## Install
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
 ## Run all experiments
 
 ```bash
