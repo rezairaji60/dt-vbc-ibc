@@ -32,7 +32,6 @@ It is **not** a full SOS/SDP implementation.
 - `src/dt_vbc/`: reusable synthesis and plotting code
 - `experiments/`: experiment driver
 - `results/`: generated figures and tables
-- `paper/`: Overleaf-ready LaTeX section
 
 ## Setup
 
