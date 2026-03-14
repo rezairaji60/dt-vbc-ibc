@@ -7,7 +7,7 @@
       "num_functions": 2,
       "success": true,
       "epsilon": 1.75,
-      "runtime_sec": 0.059973716735839844
+      "runtime_sec": 0.012565135955810547
     },
     {
       "system": "S1",
@@ -16,7 +16,7 @@
       "num_functions": 2,
       "success": true,
       "epsilon": 2.0,
-      "runtime_sec": 0.01872563362121582
+      "runtime_sec": 0.008913993835449219
     },
     {
       "system": "S1",
@@ -25,7 +25,7 @@
       "num_functions": 3,
       "success": true,
       "epsilon": 2.0,
-      "runtime_sec": 0.017412185668945312
+      "runtime_sec": 0.019132614135742188
     },
     {
       "system": "S1",
@@ -34,7 +34,7 @@
       "num_functions": 3,
       "success": true,
       "epsilon": 2.0,
-      "runtime_sec": 0.016252517700195312
+      "runtime_sec": 0.01115727424621582
     },
     {
       "system": "S2",
@@ -43,7 +43,7 @@
       "num_functions": 2,
       "success": true,
       "epsilon": 0.6481481481481481,
-      "runtime_sec": 0.013303041458129883
+      "runtime_sec": 0.009820938110351562
     },
     {
       "system": "S2",
@@ -52,7 +52,7 @@
       "num_functions": 2,
       "success": true,
       "epsilon": 1.1375,
-      "runtime_sec": 0.012928247451782227
+      "runtime_sec": 0.008419036865234375
     },
     {
       "system": "S2",
@@ -61,7 +61,7 @@
       "num_functions": 3,
       "success": true,
       "epsilon": 1.1375000000000002,
-      "runtime_sec": 0.018198251724243164
+      "runtime_sec": 0.012481689453125
     },
     {
       "system": "S2",
@@ -70,7 +70,7 @@
       "num_functions": 3,
       "success": true,
       "epsilon": 1.1375,
-      "runtime_sec": 0.016918659210205078
+      "runtime_sec": 0.011637687683105469
     }
   ],
   "encoding_summary": {

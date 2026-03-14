@@ -25,7 +25,7 @@
           0.65
         ]
       ],
-      "runtime_sec": 0.059973716735839844,
+      "runtime_sec": 0.012565135955810547,
       "message": "Optimization terminated successfully. (HiGHS Status 7: Optimal)",
       "formulation": "Forward DT-VBC",
       "degree": 2,
@@ -56,7 +56,7 @@
           1.5
         ]
       ],
-      "runtime_sec": 0.01872563362121582,
+      "runtime_sec": 0.008913993835449219,
       "message": "Optimization terminated successfully. (HiGHS Status 7: Optimal)",
       "formulation": "Backward DT-VBC",
       "degree": 2,
@@ -68,13 +68,13 @@
       "coeffs": [
         [
           -5.0,
-          2.7562326869806095,
+          2.75623268698061,
           5.0
         ],
         [
           -5.0,
           5.0,
-          2.7562326869806095
+          2.75623268698061
         ],
         [
           -4.783083398619113,
@@ -87,7 +87,7 @@
         1.5,
         1.5
       ],
-      "runtime_sec": 0.017412185668945312,
+      "runtime_sec": 0.019132614135742188,
       "message": "Optimization terminated successfully. (HiGHS Status 7: Optimal)",
       "formulation": "Forward IBC",
       "degree": 2,
@@ -118,7 +118,7 @@
         1.5,
         1.5
       ],
-      "runtime_sec": 0.016252517700195312,
+      "runtime_sec": 0.01115727424621582,
       "message": "Optimization terminated successfully. (HiGHS Status 7: Optimal)",
       "formulation": "Backward IBC",
       "degree": 2,
@@ -137,8 +137,8 @@
         ],
         [
           -5.0,
-          -2.458892936656194,
-          1.0590973924613676
+          -2.458892936656193,
+          1.0590973924613567
         ]
       ],
       "A": [
@@ -151,7 +151,7 @@
           0.65
         ]
       ],
-      "runtime_sec": 0.013303041458129883,
+      "runtime_sec": 0.009820938110351562,
       "message": "Optimization terminated successfully. (HiGHS Status 7: Optimal)",
       "formulation": "Forward DT-VBC",
       "degree": 2,
@@ -182,7 +182,7 @@
           2.0
         ]
       ],
-      "runtime_sec": 0.012928247451782227,
+      "runtime_sec": 0.008419036865234375,
       "message": "Optimization terminated successfully. (HiGHS Status 7: Optimal)",
       "formulation": "Backward DT-VBC",
       "degree": 2,
@@ -213,7 +213,7 @@
         2.0,
         2.0
       ],
-      "runtime_sec": 0.018198251724243164,
+      "runtime_sec": 0.012481689453125,
       "message": "Optimization terminated successfully. (HiGHS Status 7: Optimal)",
       "formulation": "Forward IBC",
       "degree": 2,
@@ -229,7 +229,7 @@
           -5.0
         ],
         [
-          1.4178917599999985,
+          1.417891759999999,
           -3.8277843999999983,
           -5.0
         ],
@@ -244,7 +244,7 @@
         2.0,
         2.0
       ],
-      "runtime_sec": 0.016918659210205078,
+      "runtime_sec": 0.011637687683105469,
       "message": "Optimization terminated successfully. (HiGHS Status 7: Optimal)",
       "formulation": "Backward IBC",
       "degree": 2,

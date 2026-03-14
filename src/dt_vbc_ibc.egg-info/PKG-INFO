@@ -1,8 +1,19 @@
+Metadata-Version: 2.4
+Name: dt-vbc-ibc
+Version: 1.0.0
+Summary: Case studies for DT-VBC and IBC experiments
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: numpy>=1.26
+Requires-Dist: pandas>=2.2
+Requires-Dist: matplotlib>=3.8
+Requires-Dist: scipy>=1.11
+
 # DT-VBC / IBC Case Studies for CDC 2026
 
 This repository contains a GitHub-ready experimental package for the paper:
 
-**Duality Between Vector and Interpolation-Based Barrier Certificates for Safety Verification**
+**Duality of Vector Barrier Certificates and Interpolation-Inspired Barrier Certificates for Discrete-Time Safety Verification**
 
 ## What is included
 
