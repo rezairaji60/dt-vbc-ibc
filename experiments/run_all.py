@@ -1,4 +1,10 @@
-import os, json, numpy as np, pandas as pd, matplotlib.pyplot as plt
+
+import sys
+import os
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
+
+import json, numpy as np, pandas as pd, matplotlib.pyplot as plt
 from dt_vbc.common import sample_box, make_grid
 from dt_vbc.systems import SYSTEM1, SYSTEM2, encoding_scalar_map, encoding_frames
 from dt_vbc.synthesis_lp import (
