@@ -1,65 +1,49 @@
-# DT-VBC / IBC Duality Experiments
+# DT-VBC / IBC Case Studies for CDC 2026
 
-This repository contains reproducible Python case studies for the paper:
+This repository contains a GitHub-ready experimental package for the paper:
 
 **Duality of Vector Barrier Certificates and Interpolation-Inspired Barrier Certificates for Discrete-Time Safety Verification**
 
-## Included experiments
+## What is included
 
-1. **Forward DT-VBC on a contracting 2D map**
-   - uses an analytic quadratic certificate,
-   - plots the zero-level set, initial set, unsafe set, and sample trajectories.
+- synthesis of:
+  - forward DT-VBCs
+  - backward DT-VBCs
+  - forward IBCs
+  - backward IBCs
+- a structural encoding example for:
+  - scaled backward IBC -> forward DT-VBC
+- figure generation
+- CSV/JSON summaries
+- an Overleaf-ready LaTeX section for the case studies
 
-2. **Backward DT-VBC on an expanding 2D map**
-   - uses an analytic quadratic certificate,
-   - illustrates backward-style safety reasoning.
+## Method
 
-3. **Backward IBC to backward DT-VBC bridge**
-   - visualizes frame inequalities,
-   - exports the sparse comparison matrix from the paper.
+The paper presents SOS-style synthesis for polynomial systems.  
+This repository implements a lightweight **sample-based LP synthesis prototype** using fixed quadratic templates and dense collocation grids. It is intended for:
+- reproducing the case-study figures,
+- comparing formulations,
+- and supporting the paper's experimental section.
 
-These examples are intentionally lightweight, reproducible, and easy to adapt to the final systems and figures used in the paper.
+It is **not** a full SOS/SDP implementation.
 
-## Run all experiments
+## Repository layout
+
+- `src/dt_vbc/`: reusable synthesis and plotting code
+- `experiments/`: experiment driver
+- `results/`: generated figures and tables
+- `paper/`: Overleaf-ready LaTeX section
+
+## Setup
 
 ```bash
-python -m experiments.run_all
+pip install -r requirements.txt
+python experiments/run_all.py
 ```
 
 ## Outputs
 
-- figures: `results/figures/`
-- CSV/JSON summaries: `results/data/`
-
-## Adapting to final paper systems
-
-The current paper draft did not yet specify the final numerical case-study systems and parameter values. This repository therefore provides a clean baseline structure with publication-ready plotting. To swap in your final systems:
-
-- edit the maps in `experiments/systems.py`,
-- update the configuration files under `experiments/cases/configs/`,
-- rerun `python -m experiments.run_all`.
-
-## Repository layout
-
-```
-.
-├── experiments/
-│   ├── common.py
-│   ├── systems.py
-│   ├── plot_utils.py
-│   ├── run_all.py
-│   └── cases/
-│       ├── case1_forward_dt_vbc.py
-│       ├── case2_backward_dt_vbc.py
-│       ├── case3_bibc_bridge.py
-│       └── configs/
-│           ├── case1_forward.yaml
-│           ├── case2_backward.yaml
-│           └── case3_bibc.yaml
-├── results/
-│   ├── data/
-│   └── figures/
-├── requirements.txt
-├── .gitignore
-└── LICENSE
-```
+- `results/figures/*.png`
+- `results/data/formulation_comparison.csv`
+- `results/data/summary.json`
+- `paper/experiments_section.tex`
