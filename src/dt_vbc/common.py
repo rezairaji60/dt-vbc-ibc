@@ -1,3 +1,7 @@
+"""
+Author: Reza Iraji
+Date:   March 2026
+"""
 import numpy as np
 
 def make_grid(bounds, n):

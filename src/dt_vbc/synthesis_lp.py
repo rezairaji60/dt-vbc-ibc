@@ -1,3 +1,7 @@
+"""
+Author: Reza Iraji
+Date:   March 2026
+"""
 import time
 import numpy as np
 from scipy.optimize import linprog
