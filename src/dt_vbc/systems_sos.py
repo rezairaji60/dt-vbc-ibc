@@ -1,3 +1,7 @@
+"""
+Author: Reza Iraji
+Date:   March 2026
+"""
 from __future__ import annotations
 import sympy as sp
 from .synthesis_sos import SemialgebraicSet
