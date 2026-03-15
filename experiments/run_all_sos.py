@@ -4,121 +4,184 @@ Date:   March 2026
 """
 
 from __future__ import annotations
-import json
+
 import os
-import sys
 import time
+from typing import Any, Dict, List
+
 import numpy as np
 import pandas as pd
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
-
-from dt_vbc.systems_sos import SYSTEMS
+from dt_vbc.plotting_sos import plot_bar_comparison, plot_dt_vbc_components
 from dt_vbc.synthesis_sos import (
-    build_forward_dt_vbc_problem,
-    build_backward_dt_vbc_problem,
-    build_forward_ibc_problem,
-    build_backward_ibc_problem,
-    solve_built_problem,
+    solve_backward_dt_vbc_collocation,
+    solve_backward_ibc_collocation,
+    solve_forward_dt_vbc_collocation,
+    solve_forward_ibc_collocation,
 )
-from dt_vbc.plotting_sos import plot_dt_vbc_components, plot_comparison_bar
+from dt_vbc.systems_sos import SYSTEMS, box_grid
 
-SOLVER = os.environ.get('DTVBC_SOLVER', 'SCS')
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+RESULTS_DIR = os.path.join(ROOT, "results")
+FIG_DIR = os.path.join(RESULTS_DIR, "figures")
+TAB_DIR = os.path.join(RESULTS_DIR, "tables")
+
+
 DEGREE = 2
+GRID_N_DOMAIN = 33
+GRID_N_BOUNDARY = 12
 
 
-def try_problem(builder, *args, **kwargs):
-    built = builder(*args, **kwargs)
-    t0 = time.time()
-    out = solve_built_problem(built, solver=SOLVER, verbose=False)
-    out['runtime_sec'] = time.time() - t0
-    return out
+def ensure_dirs() -> None:
+    os.makedirs(FIG_DIR, exist_ok=True)
+    os.makedirs(TAB_DIR, exist_ok=True)
 
 
-def better(a, b):
-    if a is None:
-        return True
-    if b['status'] not in ('optimal', 'optimal_inaccurate'):
-        return False
-    if a['status'] not in ('optimal', 'optimal_inaccurate'):
-        return True
-    return (b['epsilon'] or -1e18) > (a['epsilon'] or -1e18)
+def build_sets(system_key: str) -> dict[str, np.ndarray]:
+    sys = SYSTEMS[system_key]
+    domain_pts = box_grid(sys.domain, GRID_N_DOMAIN)
+    image_pts = sys.dynamics(domain_pts)
+    x0_pts = box_grid(sys.x0_box, GRID_N_BOUNDARY)
+    xu_pts = box_grid(sys.xu_box, GRID_N_BOUNDARY)
+    return {
+        "domain_pts": domain_pts,
+        "image_pts": image_pts,
+        "x0_pts": x0_pts,
+        "xu_pts": xu_pts,
+    }
 
 
-def search_all_for_system(name, cfg):
-    best = {'Forward DT-VBC': None, 'Backward DT-VBC': None, 'Forward IBC': None, 'Backward IBC': None}
-    common = dict(f_exprs=cfg['f'], vars_=cfg['vars'], X=cfg['X'], X0=cfg['X0'], Xu=cfg['Xu'], degree=DEGREE)
+def run_system_s1() -> list[dict]:
+    sys = SYSTEMS["S1"]
+    sets = build_sets("S1")
 
-    for A in cfg['A_candidates_forward']:
-        out = try_problem(build_forward_dt_vbc_problem, **common, A_value=np.array(A, dtype=float), m=2, unsafe_component=0)
-        out['system'] = name
-        if better(best['Forward DT-VBC'], out):
-            best['Forward DT-VBC'] = out
+    A_fwd = np.array([[0.0, 0.8], [0.0, 0.9]], dtype=float)
+    A_bwd = np.array([[0.9, 0.0], [0.7, 0.0]], dtype=float)
+    lambdas = [1.0, 1.0, 1.0]
 
-    for A in cfg['A_candidates_backward']:
-        out = try_problem(build_backward_dt_vbc_problem, **common, A_value=np.array(A, dtype=float), m=2, init_component=0)
-        out['system'] = name
-        if better(best['Backward DT-VBC'], out):
-            best['Backward DT-VBC'] = out
+    results = []
 
-    for lambdas in cfg['lambda_candidates']:
-        out = try_problem(build_forward_ibc_problem, **common, lambdas=lambdas, k=2)
-        out['system'] = name
-        if better(best['Forward IBC'], out):
-            best['Forward IBC'] = out
-        out = try_problem(build_backward_ibc_problem, **common, lambdas=lambdas, k=2)
-        out['system'] = name
-        if better(best['Backward IBC'], out):
-            best['Backward IBC'] = out
+    for label, solver in [
+        ("Forward DT-VBC", lambda: solve_forward_dt_vbc_collocation(**sets, degree=DEGREE, comparison_matrix=A_fwd)),
+        ("Backward DT-VBC", lambda: solve_backward_dt_vbc_collocation(**sets, degree=DEGREE, comparison_matrix=A_bwd)),
+        ("Forward IBC", lambda: solve_forward_ibc_collocation(**sets, degree=DEGREE, k=2, lambdas=lambdas)),
+        ("Backward IBC", lambda: solve_backward_ibc_collocation(**sets, degree=DEGREE, k=2, lambdas=lambdas)),
+    ]:
+        tic = time.time()
+        res = solver()
+        toc = time.time()
+        results.append(
+            {
+                "system": "S1",
+                "formulation": label,
+                "degree": res.degree,
+                "functions": res.n_functions,
+                "status": res.status,
+                "epsilon": res.epsilon,
+                "runtime_sec": toc - tic,
+                "coefficients": res.coefficients,
+            }
+        )
 
-    return best
+    # forward figure
+    fwd = next(r for r in results if r["formulation"] == "Forward DT-VBC")
+    plot_dt_vbc_components(
+        os.path.join(FIG_DIR, "case1_forward_dt_vbc_synthesized.pdf"),
+        "S1 forward DT-VBC",
+        DEGREE,
+        fwd["coefficients"],
+        ["fwdB0", "fwdB1"],
+        sys.dynamics,
+        sys.domain,
+        sys.x0_box,
+        sys.xu_box,
+        seed=1,
+    )
+
+    return results
 
 
-def main():
-    repo_root = os.path.dirname(os.path.dirname(__file__))
-    results_dir = os.path.join(repo_root, 'results')
-    fig_dir = os.path.join(results_dir, 'figures')
-    data_dir = os.path.join(results_dir, 'data')
-    os.makedirs(fig_dir, exist_ok=True)
-    os.makedirs(data_dir, exist_ok=True)
+def run_system_s2() -> list[dict]:
+    sys = SYSTEMS["S2"]
+    sets = build_sets("S2")
 
-    all_best = {}
+    A_fwd = np.array([[0.0, 0.8], [0.0, 0.9]], dtype=float)
+    A_bwd = np.array([[0.9, 0.0], [0.7, 0.0]], dtype=float)
+    lambdas = [1.0, 1.0, 1.0]
+
+    results = []
+
+    for label, solver in [
+        ("Forward DT-VBC", lambda: solve_forward_dt_vbc_collocation(**sets, degree=DEGREE, comparison_matrix=A_fwd)),
+        ("Backward DT-VBC", lambda: solve_backward_dt_vbc_collocation(**sets, degree=DEGREE, comparison_matrix=A_bwd)),
+        ("Forward IBC", lambda: solve_forward_ibc_collocation(**sets, degree=DEGREE, k=2, lambdas=lambdas)),
+        ("Backward IBC", lambda: solve_backward_ibc_collocation(**sets, degree=DEGREE, k=2, lambdas=lambdas)),
+    ]:
+        tic = time.time()
+        res = solver()
+        toc = time.time()
+        results.append(
+            {
+                "system": "S2",
+                "formulation": label,
+                "degree": res.degree,
+                "functions": res.n_functions,
+                "status": res.status,
+                "epsilon": res.epsilon,
+                "runtime_sec": toc - tic,
+                "coefficients": res.coefficients,
+            }
+        )
+
+    # backward figure
+    bwd = next(r for r in results if r["formulation"] == "Backward DT-VBC")
+    plot_dt_vbc_components(
+        os.path.join(FIG_DIR, "case2_backward_dt_vbc_synthesized.pdf"),
+        "S2 backward DT-VBC",
+        DEGREE,
+        bwd["coefficients"],
+        ["bwdB0", "bwdB1"],
+        sys.dynamics,
+        sys.domain,
+        sys.x0_box,
+        sys.xu_box,
+        seed=2,
+    )
+
+    return results
+
+
+def main() -> None:
+    ensure_dirs()
+
     rows = []
-    for name, cfg in SYSTEMS.items():
-        best = search_all_for_system(name, cfg)
-        all_best[name] = best
-        for formulation, out in best.items():
-            rows.append({
-                'system': name,
-                'formulation': formulation,
-                'degree': out['degree'],
-                'functions': out.get('m', out.get('k', 0) + 1),
-                'status': out['status'],
-                'epsilon': out['epsilon'],
-                'runtime_sec': out['runtime_sec'],
-            })
+    rows.extend(run_system_s1())
+    rows.extend(run_system_s2())
 
-    df = pd.DataFrame(rows)
-    df.to_csv(os.path.join(data_dir, 'sos_comparison.csv'), index=False)
-    with open(os.path.join(data_dir, 'sos_details.json'), 'w') as f:
-        json.dump(all_best, f, indent=2)
+    printable = []
+    for r in rows:
+        printable.append(
+            {
+                "system": r["system"],
+                "formulation": r["formulation"],
+                "degree": r["degree"],
+                "functions": r["functions"],
+                "status": r["status"],
+                "epsilon": r["epsilon"],
+                "runtime_sec": r["runtime_sec"],
+            }
+        )
 
-    # Figures only for the best forward S1 and best backward S2 DT-VBCs.
-    s1 = all_best['S1']['Forward DT-VBC']
-    s2 = all_best['S2']['Backward DT-VBC']
-    plot_dt_vbc_components(
-        os.path.join(fig_dir, 'case1_forward_dt_vbc_synthesized.pdf'),
-        'S1 forward DT-VBC', SYSTEMS['S1']['vars'], DEGREE, s1['coefficients'], ['fwdB0_', 'fwdB1_'],
-        SYSTEMS['S1']['f'], SYSTEMS['S1']['domain'], SYSTEMS['S1']['X0_box'], SYSTEMS['S1']['Xu_box'], seed=1,
-    )
-    plot_dt_vbc_components(
-        os.path.join(fig_dir, 'case2_backward_dt_vbc_synthesized.pdf'),
-        'S2 backward DT-VBC', SYSTEMS['S2']['vars'], DEGREE, s2['coefficients'], ['bwdB0_', 'bwdB1_'],
-        SYSTEMS['S2']['f'], SYSTEMS['S2']['domain'], SYSTEMS['S2']['X0_box'], SYSTEMS['S2']['Xu_box'], seed=2,
-    )
-    plot_comparison_bar(df, os.path.join(fig_dir, 'comparison_methods.pdf'))
+    df = pd.DataFrame(printable)
     print(df.to_string(index=False))
+    df.to_csv(os.path.join(TAB_DIR, "sos_summary.csv"), index=False)
+
+    plot_bar_comparison(
+        os.path.join(FIG_DIR, "comparison_methods.pdf"),
+        printable,
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

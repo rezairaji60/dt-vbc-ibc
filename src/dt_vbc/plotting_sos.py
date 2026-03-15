@@ -3,93 +3,118 @@ Author: Reza Iraji
 Date:   March 2026
 """
 from __future__ import annotations
-import numpy as np
+
+from typing import Callable, Dict, List, Sequence, Tuple
+
 import matplotlib.pyplot as plt
-import sympy as sp
-from .common import make_grid, rollout_box
-from .poly_basis import monomials
+import matplotlib.patches as patches
+import numpy as np
+
+from .polynomials import eval_poly_2d, monomial_exponents_2d
+from .systems_sos import sample_box, simulate_trajectories
 
 
-def build_poly_from_solution(vars_, degree, prefix, coeff_dict):
-    mons = monomials(vars_, degree)
-    expr = sp.Integer(0)
-    for idx, m in enumerate(mons):
-        expr += coeff_dict.get(f"{prefix}{idx}", 0.0) * m
-    return sp.expand(expr)
+Box = Tuple[Tuple[float, float], Tuple[float, float]]
 
 
-def evaluate_expr(expr, vars_, X, Y):
-    f = sp.lambdify(vars_, expr, 'numpy')
-    Z = f(X, Y)
-    Z = np.asarray(Z, dtype=float)
-    if Z.ndim == 0:
-        Z = np.full_like(X, float(Z), dtype=float)
-    return Z
+def _eval_on_grid(
+    coeffs: np.ndarray,
+    degree: int,
+    box: Box,
+    n: int = 240,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    (xlo, xhi), (ylo, yhi) = box
+    xs = np.linspace(xlo, xhi, n)
+    ys = np.linspace(ylo, yhi, n)
+    X, Y = np.meshgrid(xs, ys)
+    pts = np.column_stack([X.ravel(), Y.ravel()])
+    exps = monomial_exponents_2d(degree)
+    z = eval_poly_2d(pts, coeffs, exps)
+    if np.isscalar(z) or getattr(z, "ndim", 1) == 0:
+        z = np.full(X.shape, float(z))
+    else:
+        z = np.asarray(z).reshape(X.shape)
+    return X, Y, z
 
 
-def system_func_from_sympy(exprs, vars_):
-    f = sp.lambdify(vars_, exprs, 'numpy')
+def _add_box(ax: plt.Axes, box: Box, color: str, label: str) -> None:
+    (xlo, xhi), (ylo, yhi) = box
+    rect = patches.Rectangle(
+        (xlo, ylo),
+        xhi - xlo,
+        yhi - ylo,
+        linewidth=2.0,
+        edgecolor=color,
+        facecolor="none",
+        label=label,
+    )
+    ax.add_patch(rect)
 
-    def wrapped(x):
-        out = f(*x)
-        return np.array(out, dtype=float).reshape(-1)
 
-    return wrapped
+def plot_dt_vbc_components(
+    outfile: str,
+    title: str,
+    degree: int,
+    coeffs_map: Dict[str, np.ndarray],
+    coeff_names: Sequence[str],
+    dynamics: Callable[[np.ndarray], np.ndarray],
+    domain: Box,
+    x0_box: Box,
+    xu_box: Box,
+    seed: int = 0,
+    n_grid: int = 220,
+) -> None:
+    fig, axes = plt.subplots(1, len(coeff_names), figsize=(5.2 * len(coeff_names), 4.4), squeeze=False)
+    axes = axes[0]
 
+    x0_samples = sample_box(x0_box, n=10, seed=seed)
+    trajectories = simulate_trajectories(dynamics, x0_samples, horizon=25)
 
-def plot_dt_vbc_components(path, title_prefix, vars_, degree, coeffs, prefixes,
-                           f_exprs, bounds, X0_box, Xu_box, seed=0):
-    X, Y, _ = make_grid(bounds, 220)
-    exprs = [build_poly_from_solution(vars_, degree, p, coeffs) for p in prefixes]
-    vals = [evaluate_expr(e, vars_, X, Y) for e in exprs]
-    f_num = system_func_from_sympy(f_exprs, vars_)
-    trajs = rollout_box(f_num, X0_box, 10, 15, np.random.default_rng(seed))
+    for ax, name in zip(axes, coeff_names):
+        coeffs = coeffs_map[name]
+        X, Y, Z = _eval_on_grid(coeffs, degree, domain, n=n_grid)
 
-    fig, axes = plt.subplots(1, len(exprs), figsize=(5.1 * len(exprs), 4.2))
-    if len(exprs) == 1:
-        axes = [axes]
+        im = ax.contourf(X, Y, Z, levels=30, cmap="coolwarm")
+        try:
+            ax.contour(X, Y, Z, levels=[0.0], colors="k", linewidths=1.8)
+        except Exception:
+            pass
 
-    for i, ax in enumerate(axes):
-        Z = vals[i]
-        im = ax.contourf(X, Y, Z, levels=28, cmap='coolwarm')
-        ax.contour(X, Y, Z, levels=[0.0], colors='black', linewidths=1.8)
+        for traj in trajectories:
+            ax.plot(traj[:, 0], traj[:, 1], color="k", linewidth=0.8, alpha=0.6)
 
-        x0, x1, y0, y1 = X0_box
-        u0, u1, v0, v1 = Xu_box
-        ax.add_patch(plt.Rectangle((x0, y0), x1 - x0, y1 - y0,
-                                   fill=False, edgecolor='tab:blue', linewidth=2.0))
-        ax.add_patch(plt.Rectangle((u0, v0), u1 - u0, v1 - v0,
-                                   fill=False, edgecolor='tab:orange', linewidth=2.0))
+        _add_box(ax, x0_box, "tab:blue", r"$X_0$")
+        _add_box(ax, xu_box, "tab:orange", r"$X_u$")
 
-        for tr in trajs:
-            ax.plot(tr[:, 0], tr[:, 1], color='black', alpha=0.35, linewidth=1.0)
+        ax.set_title(name)
+        ax.set_xlabel(r"$x_1$")
+        ax.set_ylabel(r"$x_2$")
+        ax.set_aspect("equal")
 
-        ax.set_xlabel(r'$x_1$')
-        ax.set_ylabel(r'$x_2$')
-        ax.set_title(f'{title_prefix} component {i+1}')
-        plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    handles, labels = axes[0].get_legend_handles_labels()
+    if handles:
+        fig.legend(handles, labels, loc="upper center", ncol=2, frameon=False)
 
-    fig.tight_layout()
-    fig.savefig(path, bbox_inches='tight')
+    fig.suptitle(title)
+    fig.colorbar(im, ax=axes.tolist(), fraction=0.03, pad=0.04)
+    fig.tight_layout(rect=[0, 0, 1, 0.93])
+    fig.savefig(outfile, bbox_inches="tight")
     plt.close(fig)
 
 
-def plot_comparison_bar(df, path):
-    order = ['Forward DT-VBC', 'Backward DT-VBC', 'Forward IBC', 'Backward IBC']
-    pivot = df.pivot(index='formulation', columns='system', values='epsilon').reindex(order)
+def plot_bar_comparison(
+    outfile: str,
+    rows: list[dict],
+) -> None:
+    labels = [f"{r['system']} / {r['formulation']}" for r in rows if r["epsilon"] is not None]
+    values = [float(r["epsilon"]) for r in rows if r["epsilon"] is not None]
 
-    fig, ax = plt.subplots(figsize=(7.2, 4.0))
-    x = np.arange(len(order))
-    w = 0.35
-
-    for j, col in enumerate(pivot.columns):
-        ax.bar(x + (j - 0.5) * w, pivot[col].values, width=w, label=col)
-
-    ax.set_xticks(x)
-    ax.set_xticklabels(order, rotation=15, ha='right')
-    ax.set_ylabel(r'$\epsilon$')
-    ax.set_title('SOS synthesis margins')
-    ax.legend()
+    fig, ax = plt.subplots(figsize=(8.5, 3.8))
+    ax.bar(range(len(values)), values)
+    ax.set_xticks(range(len(values)))
+    ax.set_xticklabels(labels, rotation=30, ha="right")
+    ax.set_ylabel(r"collocation margin $\varepsilon$")
+    ax.set_title("Comparison across formulations")
     fig.tight_layout()
-    fig.savefig(path, bbox_inches='tight')
+    fig.savefig(outfile, bbox_inches="tight")
     plt.close(fig)

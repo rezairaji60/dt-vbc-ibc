@@ -13,176 +13,305 @@ Important modeling choice:
   experiments/run_all_sos.py.
 """
 from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Dict, List, Sequence, Tuple, Any
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
+
 import cvxpy as cp
 import numpy as np
-import sympy as sp
-from .poly_basis import PolyTemplate
-from .sos_utils import gram_sos, coefficient_matching_constraints, cvx_symbol_map
+
+from .polynomials import evaluate_monomials_2d, monomial_exponents_2d
+
 
 @dataclass
-class SemialgebraicSet:
-    polys: Sequence[sp.Expr]
-
-@dataclass
-class BuiltSOSProblem:
-    problem: cp.Problem
-    coeff_vars: Dict[str, cp.Variable]
-    eps: cp.Variable
-    metadata: Dict[str, Any]
-
-
-def _build_poly_templates(vars_: Tuple[sp.Symbol, ...], count: int, degree: int, prefix: str):
-    exprs = []
-    coeff_vars: Dict[str, cp.Variable] = {}
-    affine_map: Dict[sp.Symbol, cp.Expression] = {}
-    for i in range(count):
-        poly, syms, _ = PolyTemplate(vars_, degree, f"{prefix}{i}_").build()
-        exprs.append(poly)
-        for s in syms:
-            v = cp.Variable(name=str(s))
-            coeff_vars[str(s)] = v
-            affine_map[s] = v
-    return exprs, coeff_vars, affine_map
+class SynthesisResult:
+    formulation: str
+    status: str
+    feasible: bool
+    epsilon: float | None
+    degree: int
+    n_functions: int
+    comparison_matrix: np.ndarray | None
+    coefficients: Dict[str, np.ndarray]
+    notes: str
 
 
-def _sigma_terms(vars_, set_polys, prefix: str):
-    sigmas = []
-    for j, g in enumerate(set_polys):
-        s = gram_sos(vars_, degree=2, prefix=f"{prefix}_{j}")
-        sigmas.append((s, g, f"{prefix}_{j}"))
-    return sigmas
-
-
-def _constraints_for_target(target, vars_, affine_map, prefix: str, degree_hint: int, sigma_terms):
-    s_main = gram_sos(vars_, degree=degree_hint if degree_hint % 2 == 0 else degree_hint + 1, prefix=prefix)
-    local_map = dict(affine_map)
-    for s, _, sprefix in sigma_terms:
-        local_map.update(cvx_symbol_map(sprefix, s.gram))
-    cons = coefficient_matching_constraints(sp.expand(target), s_main, vars_, local_map, prefix)
-    cons += [s_main.gram >> 0]
-    for s, _, _ in sigma_terms:
-        cons += [s.gram >> 0]
-    return cons
-
-
-def build_forward_dt_vbc_problem(f_exprs, vars_, X, X0, Xu, degree, A_value, m=2, unsafe_component=0, solver='SCS'):
-    B_exprs, coeff_vars, affine_map = _build_poly_templates(vars_, m, degree, 'fwdB')
-    eps = cp.Variable(nonneg=True, name='eps')
-    affine_map[sp.Symbol('eps')] = eps
-    constraints: List[cp.Constraint] = []
-
-    for i in range(m):
-        sigmas = _sigma_terms(vars_, X0.polys, f'sig0_{i}')
-        target = -B_exprs[i] - sum(s.expr * g for s, g, _ in sigmas)
-        constraints += _constraints_for_target(target, vars_, affine_map, f'init_{i}', max(2, degree + 2), sigmas)
-
-    q = unsafe_component
-    sigmas = _sigma_terms(vars_, Xu.polys, f'sigu_{q}')
-    target = B_exprs[q] - sp.Symbol('eps') - sum(s.expr * g for s, g, _ in sigmas)
-    constraints += _constraints_for_target(target, vars_, affine_map, 'unsafe', max(2, degree + 2), sigmas)
-
-    Bf = [sp.expand(b.subs(dict(zip(vars_, f_exprs)))) for b in B_exprs]
-    for i in range(m):
-        sigmas = _sigma_terms(vars_, X.polys, f'sigx_{i}')
-        target = -Bf[i] + sum(float(A_value[i, j]) * B_exprs[j] for j in range(m)) - sum(s.expr * g for s, g, _ in sigmas)
-        constraints += _constraints_for_target(target, vars_, affine_map, f'prop_{i}', max(2, degree + 4), sigmas)
-
-    return BuiltSOSProblem(cp.Problem(cp.Maximize(eps), constraints), coeff_vars, eps,
-                           {'formulation': 'Forward DT-VBC', 'degree': degree, 'm': m, 'A': np.asarray(A_value).tolist(), 'solver': solver})
-
-
-def build_backward_dt_vbc_problem(f_exprs, vars_, X, X0, Xu, degree, A_value, m=2, init_component=0, solver='SCS'):
-    B_exprs, coeff_vars, affine_map = _build_poly_templates(vars_, m, degree, 'bwdB')
-    eps = cp.Variable(nonneg=True, name='eps')
-    affine_map[sp.Symbol('eps')] = eps
-    constraints: List[cp.Constraint] = []
-
-    for i in range(m):
-        sigmas = _sigma_terms(vars_, Xu.polys, f'sigu_{i}')
-        target = -B_exprs[i] - sum(s.expr * g for s, g, _ in sigmas)
-        constraints += _constraints_for_target(target, vars_, affine_map, f'unsafe_{i}', max(2, degree + 2), sigmas)
-
-    q = init_component
-    sigmas = _sigma_terms(vars_, X0.polys, f'sig0_{q}')
-    target = B_exprs[q] - sp.Symbol('eps') - sum(s.expr * g for s, g, _ in sigmas)
-    constraints += _constraints_for_target(target, vars_, affine_map, 'init_sep', max(2, degree + 2), sigmas)
-
-    Bf = [sp.expand(b.subs(dict(zip(vars_, f_exprs)))) for b in B_exprs]
-    for i in range(m):
-        sigmas = _sigma_terms(vars_, X.polys, f'sigx_{i}')
-        target = -B_exprs[i] + sum(float(A_value[i, j]) * Bf[j] for j in range(m)) - sum(s.expr * g for s, g, _ in sigmas)
-        constraints += _constraints_for_target(target, vars_, affine_map, f'prop_{i}', max(2, degree + 4), sigmas)
-
-    return BuiltSOSProblem(cp.Problem(cp.Maximize(eps), constraints), coeff_vars, eps,
-                           {'formulation': 'Backward DT-VBC', 'degree': degree, 'm': m, 'A': np.asarray(A_value).tolist(), 'solver': solver})
-
-
-def build_forward_ibc_problem(f_exprs, vars_, X, X0, Xu, degree, lambdas, k=2, solver='SCS'):
-    frames, coeff_vars, affine_map = _build_poly_templates(vars_, k + 1, degree, 'fibc')
-    eps = cp.Variable(nonneg=True, name='eps')
-    affine_map[sp.Symbol('eps')] = eps
-    constraints: List[cp.Constraint] = []
-
-    sigmas = _sigma_terms(vars_, X0.polys, 'sig0')
-    target = -frames[0] - sum(s.expr * g for s, g, _ in sigmas)
-    constraints += _constraints_for_target(target, vars_, affine_map, 'init', max(2, degree + 2), sigmas)
-
-    for i in range(k + 1):
-        sigmas = _sigma_terms(vars_, Xu.polys, f'sigu_{i}')
-        target = frames[i] - sp.Symbol('eps') - sum(s.expr * g for s, g, _ in sigmas)
-        constraints += _constraints_for_target(target, vars_, affine_map, f'unsafe_{i}', max(2, degree + 2), sigmas)
-
-    for i in range(k):
-        sigmas = _sigma_terms(vars_, X.polys, f'sigx_{i}')
-        target = float(lambdas[i]) * sp.expand(frames[i + 1].subs(dict(zip(vars_, f_exprs)))) - frames[i] - sum(s.expr * g for s, g, _ in sigmas)
-        constraints += _constraints_for_target(target, vars_, affine_map, f'prop_{i}', max(2, degree + 4), sigmas)
-    sigmas = _sigma_terms(vars_, X.polys, f'sigx_{k}')
-    target = float(lambdas[k]) * sp.expand(frames[k].subs(dict(zip(vars_, f_exprs)))) - frames[k] - sum(s.expr * g for s, g, _ in sigmas)
-    constraints += _constraints_for_target(target, vars_, affine_map, f'prop_{k}', max(2, degree + 4), sigmas)
-
-    return BuiltSOSProblem(cp.Problem(cp.Maximize(eps), constraints), coeff_vars, eps,
-                           {'formulation': 'Forward IBC', 'degree': degree, 'k': k, 'lambdas': list(map(float, lambdas)), 'solver': solver})
-
-
-def build_backward_ibc_problem(f_exprs, vars_, X, X0, Xu, degree, lambdas, k=2, solver='SCS'):
-    frames, coeff_vars, affine_map = _build_poly_templates(vars_, k + 1, degree, 'bibc')
-    eps = cp.Variable(nonneg=True, name='eps')
-    affine_map[sp.Symbol('eps')] = eps
-    constraints: List[cp.Constraint] = []
-
-    sigmas = _sigma_terms(vars_, Xu.polys, 'sigu0')
-    target = -frames[0] - sum(s.expr * g for s, g, _ in sigmas)
-    constraints += _constraints_for_target(target, vars_, affine_map, 'unsafe0', max(2, degree + 2), sigmas)
-
-    for i in range(k + 1):
-        sigmas = _sigma_terms(vars_, X0.polys, f'sig0_{i}')
-        target = frames[i] - sp.Symbol('eps') - sum(s.expr * g for s, g, _ in sigmas)
-        constraints += _constraints_for_target(target, vars_, affine_map, f'init_{i}', max(2, degree + 2), sigmas)
-
-    for i in range(k):
-        sigmas = _sigma_terms(vars_, X.polys, f'sigx_{i}')
-        target = frames[i + 1] - float(lambdas[i]) * sp.expand(frames[i].subs(dict(zip(vars_, f_exprs)))) - sum(s.expr * g for s, g, _ in sigmas)
-        constraints += _constraints_for_target(target, vars_, affine_map, f'prop_{i}', max(2, degree + 4), sigmas)
-    sigmas = _sigma_terms(vars_, X.polys, f'sigx_{k}')
-    target = frames[k] - float(lambdas[k]) * sp.expand(frames[k].subs(dict(zip(vars_, f_exprs)))) - sum(s.expr * g for s, g, _ in sigmas)
-    constraints += _constraints_for_target(target, vars_, affine_map, f'prop_{k}', max(2, degree + 4), sigmas)
-
-    return BuiltSOSProblem(cp.Problem(cp.Maximize(eps), constraints), coeff_vars, eps,
-                           {'formulation': 'Backward IBC', 'degree': degree, 'k': k, 'lambdas': list(map(float, lambdas)), 'solver': solver})
-
-
-def solve_built_problem(built: BuiltSOSProblem, solver='SCS', verbose=False, max_iters=30000):
-    kwargs: Dict[str, Any] = {'verbose': verbose}
-    if solver.upper() == 'SCS':
-        kwargs.update({'eps': 1e-5, 'max_iters': max_iters})
-    built.problem.solve(solver=solver, **kwargs)
-    coeffs = {k: float(v.value) for k, v in built.coeff_vars.items() if v.value is not None}
+def _build_design(
+    domain_pts: np.ndarray,
+    x0_pts: np.ndarray,
+    xu_pts: np.ndarray,
+    degree: int,
+) -> Dict[str, np.ndarray]:
+    exps = monomial_exponents_2d(degree)
     return {
-        **built.metadata,
-        'status': built.problem.status,
-        'objective': None if built.problem.value is None else float(built.problem.value),
-        'epsilon': None if built.eps.value is None else float(built.eps.value),
-        'coefficients': coeffs,
+        "exponents": np.array(exps, dtype=int),
+        "Phi_domain": evaluate_monomials_2d(domain_pts, exps),
+        "Phi_x0": evaluate_monomials_2d(x0_pts, exps),
+        "Phi_xu": evaluate_monomials_2d(xu_pts, exps),
     }
+
+
+def _make_poly_vars(n_functions: int, n_monomials: int, prefix: str) -> Dict[str, cp.Variable]:
+    return {f"{prefix}{i}": cp.Variable(n_monomials) for i in range(n_functions)}
+
+
+def solve_forward_dt_vbc_collocation(
+    domain_pts: np.ndarray,
+    image_pts: np.ndarray,
+    x0_pts: np.ndarray,
+    xu_pts: np.ndarray,
+    degree: int,
+    comparison_matrix: np.ndarray,
+    epsilon_upper: float = 1.0,
+) -> SynthesisResult:
+    design = _build_design(domain_pts, x0_pts, xu_pts, degree)
+    exps = design["exponents"]
+    n_monomials = len(exps)
+    m = comparison_matrix.shape[0]
+    coeffs = _make_poly_vars(m, n_monomials, "fwdB")
+
+    eps = cp.Variable(nonneg=True)
+    constraints = [eps <= epsilon_upper]
+
+    B_domain = []
+    B_image = []
+    B_x0 = []
+    B_xu = []
+
+    Phi_domain = design["Phi_domain"]
+    Phi_x0 = design["Phi_x0"]
+    Phi_xu = design["Phi_xu"]
+    Phi_image = evaluate_monomials_2d(image_pts, [tuple(e) for e in exps])
+
+    for i in range(m):
+        c = coeffs[f"fwdB{i}"]
+        B_domain.append(Phi_domain @ c)
+        B_image.append(Phi_image @ c)
+        B_x0.append(Phi_x0 @ c)
+        B_xu.append(Phi_xu @ c)
+
+        constraints.append(B_x0[i] <= -eps)
+        constraints.append(B_xu[i] >= eps)
+
+    for i in range(m):
+        rhs = 0
+        for j in range(m):
+            rhs = rhs + comparison_matrix[i, j] * B_domain[j]
+        constraints.append(B_image[i] <= rhs - eps)
+
+    objective = cp.Maximize(eps)
+    problem = cp.Problem(objective, constraints)
+    problem.solve(solver=cp.SCS, verbose=False)
+
+    feasible = problem.status in {"optimal", "optimal_inaccurate"} and eps.value is not None
+    out = {
+        name: np.array(var.value).reshape(-1) if var.value is not None else np.zeros(n_monomials)
+        for name, var in coeffs.items()
+    }
+    return SynthesisResult(
+        formulation="Forward DT-VBC",
+        status=problem.status,
+        feasible=feasible,
+        epsilon=float(eps.value) if eps.value is not None else None,
+        degree=degree,
+        n_functions=m,
+        comparison_matrix=comparison_matrix.copy(),
+        coefficients=out,
+        notes="Collocation-based surrogate search with fixed comparison matrix.",
+    )
+
+
+def solve_backward_dt_vbc_collocation(
+    domain_pts: np.ndarray,
+    image_pts: np.ndarray,
+    x0_pts: np.ndarray,
+    xu_pts: np.ndarray,
+    degree: int,
+    comparison_matrix: np.ndarray,
+    epsilon_upper: float = 1.0,
+) -> SynthesisResult:
+    design = _build_design(domain_pts, x0_pts, xu_pts, degree)
+    exps = design["exponents"]
+    n_monomials = len(exps)
+    m = comparison_matrix.shape[0]
+    coeffs = _make_poly_vars(m, n_monomials, "bwdB")
+
+    eps = cp.Variable(nonneg=True)
+    constraints = [eps <= epsilon_upper]
+
+    B_domain = []
+    B_image = []
+    B_x0 = []
+    B_xu = []
+
+    Phi_domain = design["Phi_domain"]
+    Phi_x0 = design["Phi_x0"]
+    Phi_xu = design["Phi_xu"]
+    Phi_image = evaluate_monomials_2d(image_pts, [tuple(e) for e in exps])
+
+    for i in range(m):
+        c = coeffs[f"bwdB{i}"]
+        B_domain.append(Phi_domain @ c)
+        B_image.append(Phi_image @ c)
+        B_x0.append(Phi_x0 @ c)
+        B_xu.append(Phi_xu @ c)
+
+        constraints.append(B_xu[i] <= -eps)
+        constraints.append(B_x0[i] >= eps)
+
+    for i in range(m):
+        rhs = 0
+        for j in range(m):
+            rhs = rhs + comparison_matrix[i, j] * B_image[j]
+        constraints.append(B_domain[i] <= rhs - eps)
+
+    objective = cp.Maximize(eps)
+    problem = cp.Problem(objective, constraints)
+    problem.solve(solver=cp.SCS, verbose=False)
+
+    feasible = problem.status in {"optimal", "optimal_inaccurate"} and eps.value is not None
+    out = {
+        name: np.array(var.value).reshape(-1) if var.value is not None else np.zeros(n_monomials)
+        for name, var in coeffs.items()
+    }
+    return SynthesisResult(
+        formulation="Backward DT-VBC",
+        status=problem.status,
+        feasible=feasible,
+        epsilon=float(eps.value) if eps.value is not None else None,
+        degree=degree,
+        n_functions=m,
+        comparison_matrix=comparison_matrix.copy(),
+        coefficients=out,
+        notes="Collocation-based surrogate search with fixed comparison matrix.",
+    )
+
+
+def solve_forward_ibc_collocation(
+    domain_pts: np.ndarray,
+    image_pts: np.ndarray,
+    x0_pts: np.ndarray,
+    xu_pts: np.ndarray,
+    degree: int,
+    k: int,
+    lambdas: Sequence[float],
+    epsilon_upper: float = 1.0,
+) -> SynthesisResult:
+    design = _build_design(domain_pts, x0_pts, xu_pts, degree)
+    exps = design["exponents"]
+    n_monomials = len(exps)
+    n_frames = k + 1
+    coeffs = _make_poly_vars(n_frames, n_monomials, "fwdibc")
+
+    eps = cp.Variable(nonneg=True)
+    constraints = [eps <= epsilon_upper]
+
+    Phi_domain = design["Phi_domain"]
+    Phi_x0 = design["Phi_x0"]
+    Phi_xu = design["Phi_xu"]
+    Phi_image = evaluate_monomials_2d(image_pts, [tuple(e) for e in exps])
+
+    B_domain = []
+    B_image = []
+    B_x0 = []
+    B_xu = []
+
+    for i in range(n_frames):
+        c = coeffs[f"fwdibc{i}"]
+        B_domain.append(Phi_domain @ c)
+        B_image.append(Phi_image @ c)
+        B_x0.append(Phi_x0 @ c)
+        B_xu.append(Phi_xu @ c)
+        constraints.append(B_xu[i] >= eps)
+
+    constraints.append(B_x0[0] <= -eps)
+
+    for i in range(k):
+        constraints.append(lambdas[i] * B_image[i + 1] - B_domain[i] <= -eps)
+    constraints.append(lambdas[k] * B_image[k] - B_domain[k] <= -eps)
+
+    objective = cp.Maximize(eps)
+    problem = cp.Problem(objective, constraints)
+    problem.solve(solver=cp.SCS, verbose=False)
+
+    feasible = problem.status in {"optimal", "optimal_inaccurate"} and eps.value is not None
+    out = {
+        name: np.array(var.value).reshape(-1) if var.value is not None else np.zeros(n_monomials)
+        for name, var in coeffs.items()
+    }
+    return SynthesisResult(
+        formulation="Forward IBC",
+        status=problem.status,
+        feasible=feasible,
+        epsilon=float(eps.value) if eps.value is not None else None,
+        degree=degree,
+        n_functions=n_frames,
+        comparison_matrix=None,
+        coefficients=out,
+        notes="Collocation-based surrogate search with fixed positive scalings.",
+    )
+
+
+def solve_backward_ibc_collocation(
+    domain_pts: np.ndarray,
+    image_pts: np.ndarray,
+    x0_pts: np.ndarray,
+    xu_pts: np.ndarray,
+    degree: int,
+    k: int,
+    lambdas: Sequence[float],
+    epsilon_upper: float = 1.0,
+) -> SynthesisResult:
+    design = _build_design(domain_pts, x0_pts, xu_pts, degree)
+    exps = design["exponents"]
+    n_monomials = len(exps)
+    n_frames = k + 1
+    coeffs = _make_poly_vars(n_frames, n_monomials, "bwdibc")
+
+    eps = cp.Variable(nonneg=True)
+    constraints = [eps <= epsilon_upper]
+
+    Phi_domain = design["Phi_domain"]
+    Phi_x0 = design["Phi_x0"]
+    Phi_xu = design["Phi_xu"]
+    Phi_image = evaluate_monomials_2d(image_pts, [tuple(e) for e in exps])
+
+    B_domain = []
+    B_image = []
+    B_x0 = []
+    B_xu = []
+
+    for i in range(n_frames):
+        c = coeffs[f"bwdibc{i}"]
+        B_domain.append(Phi_domain @ c)
+        B_image.append(Phi_image @ c)
+        B_x0.append(Phi_x0 @ c)
+        B_xu.append(Phi_xu @ c)
+        constraints.append(B_x0[i] >= eps)
+
+    constraints.append(B_xu[0] <= -eps)
+
+    for i in range(k):
+        constraints.append(B_domain[i + 1] - lambdas[i] * B_image[i] <= -eps)
+    constraints.append(B_domain[k] - lambdas[k] * B_image[k] <= -eps)
+
+    objective = cp.Maximize(eps)
+    problem = cp.Problem(objective, constraints)
+    problem.solve(solver=cp.SCS, verbose=False)
+
+    feasible = problem.status in {"optimal", "optimal_inaccurate"} and eps.value is not None
+    out = {
+        name: np.array(var.value).reshape(-1) if var.value is not None else np.zeros(n_monomials)
+        for name, var in coeffs.items()
+    }
+    return SynthesisResult(
+        formulation="Backward IBC",
+        status=problem.status,
+        feasible=feasible,
+        epsilon=float(eps.value) if eps.value is not None else None,
+        degree=degree,
+        n_functions=n_frames,
+        comparison_matrix=None,
+        coefficients=out,
+        notes="Collocation-based surrogate search with fixed positive scalings.",
+    )
