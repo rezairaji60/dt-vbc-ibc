@@ -1,9 +1,9 @@
 system,formulation,degree,functions,status,epsilon,runtime_sec
-S1,Forward DT-VBC,2,2,optimal_inaccurate,6.204616439555058e-05,7.714022874832153
-S1,Backward DT-VBC,2,2,optimal_inaccurate,0.0,7.659316062927246
-S1,Forward IBC,2,3,optimal_inaccurate,0.0,15.843284845352173
-S1,Backward IBC,2,3,optimal_inaccurate,0.0,15.954573631286621
-S2,Forward DT-VBC,2,2,optimal_inaccurate,390.3323675672819,7.930659055709839
-S2,Backward DT-VBC,2,2,unbounded_inaccurate,,7.9995503425598145
-S2,Forward IBC,2,3,optimal_inaccurate,19540.35341832862,16.35920000076294
-S2,Backward IBC,2,3,optimal_inaccurate,0.0,68.26956725120544
+S1,Forward DT-VBC,2,2,optimal_inaccurate,6.204616439555058e-05,7.737405300140381
+S1,Backward DT-VBC,2,2,optimal_inaccurate,0.0,7.709449768066406
+S1,Forward IBC,2,3,optimal_inaccurate,0.0,15.745585441589355
+S1,Backward IBC,2,3,optimal_inaccurate,0.0,16.250483751296997
+S2,Forward DT-VBC,2,2,optimal_inaccurate,390.3323675672819,8.04052448272705
+S2,Backward DT-VBC,2,2,unbounded_inaccurate,,7.707223892211914
+S2,Forward IBC,2,3,optimal_inaccurate,19540.35341832862,16.92245078086853
+S2,Backward IBC,2,3,optimal_inaccurate,0.0,35.87156939506531

@@ -32,7 +32,7 @@
         "fwdB1_4": 0.0,
         "fwdB1_5": 0.0
       },
-      "runtime_sec": 7.714022874832153,
+      "runtime_sec": 7.737405300140381,
       "system": "S1"
     },
     "Backward DT-VBC": {
@@ -67,7 +67,7 @@
         "bwdB1_4": 0.0,
         "bwdB1_5": 0.0
       },
-      "runtime_sec": 7.659316062927246,
+      "runtime_sec": 7.709449768066406,
       "system": "S1"
     },
     "Forward IBC": {
@@ -103,7 +103,7 @@
         "fibc2_4": -2.5585893513551633e-05,
         "fibc2_5": -0.00022163720603954315
       },
-      "runtime_sec": 15.843284845352173,
+      "runtime_sec": 15.745585441589355,
       "system": "S1"
     },
     "Backward IBC": {
@@ -139,7 +139,7 @@
         "bibc2_4": -8.438050214734771e-05,
         "bibc2_5": 1.1739882024512114
       },
-      "runtime_sec": 15.954573631286621,
+      "runtime_sec": 16.250483751296997,
       "system": "S1"
     }
   },
@@ -176,7 +176,7 @@
         "fwdB1_4": 0.0,
         "fwdB1_5": 0.0
       },
-      "runtime_sec": 7.930659055709839,
+      "runtime_sec": 8.04052448272705,
       "system": "S2"
     },
     "Backward DT-VBC": {
@@ -198,7 +198,7 @@
       "objective": Infinity,
       "epsilon": null,
       "coefficients": {},
-      "runtime_sec": 7.9995503425598145,
+      "runtime_sec": 7.707223892211914,
       "system": "S2"
     },
     "Forward IBC": {
@@ -234,7 +234,7 @@
         "fibc2_4": -358.2229679422055,
         "fibc2_5": 2523.7101645604644
       },
-      "runtime_sec": 16.35920000076294,
+      "runtime_sec": 16.92245078086853,
       "system": "S2"
     },
     "Backward IBC": {
@@ -270,7 +270,7 @@
         "bibc2_4": -0.19032990548323916,
         "bibc2_5": 1.669663802967002
       },
-      "runtime_sec": 68.26956725120544,
+      "runtime_sec": 35.87156939506531,
       "system": "S2"
     }
   }
