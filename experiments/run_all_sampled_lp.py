@@ -8,14 +8,21 @@ import os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
 
-import json, numpy as np, pandas as pd, matplotlib.pyplot as plt
+import json
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
 from dt_vbc.common import sample_box, make_grid
 from dt_vbc.systems import SYSTEM1, SYSTEM2, encoding_scalar_map, encoding_frames
 from dt_vbc.synthesis_lp import (
-    synth_forward_dt_vbc, synth_backward_dt_vbc,
-    synth_forward_ibc, synth_backward_ibc
+    synth_forward_dt_vbc,
+    synth_backward_dt_vbc,
+    synth_forward_ibc,
+    synth_backward_ibc,
 )
 from dt_vbc.plotting import plot_certificate
+
 
 def best_forward_vbc(system):
     X0 = sample_box(system["X0"], 5)
@@ -30,6 +37,7 @@ def best_forward_vbc(system):
                 best = res
     return best
 
+
 def best_backward_vbc(system):
     X0 = sample_box(system["X0"], 5)
     Xu = sample_box(system["Xu"], 5)
@@ -42,6 +50,7 @@ def best_backward_vbc(system):
             best = res
     return best
 
+
 def best_forward_ibc(system):
     X0 = sample_box(system["X0"], 5)
     Xu = sample_box(system["Xu"], 5)
@@ -52,6 +61,7 @@ def best_forward_ibc(system):
         if res["success"] and (best is None or res["epsilon"] > best["epsilon"]):
             best = res
     return best
+
 
 def best_backward_ibc(system):
     X0 = sample_box(system["X0"], 5)
@@ -64,36 +74,47 @@ def best_backward_ibc(system):
             best = res
     return best
 
+
 def run_encoding_case(results_dir):
     fig_dir = os.path.join(results_dir, "figures")
     data_dir = os.path.join(results_dir, "data")
+
     xs = np.linspace(-1.5, 1.5, 500)
     fx = encoding_scalar_map(xs)
     frames = encoding_frames(xs)
     frames_next = encoding_frames(fx)
     B = -frames
     Bnext = -frames_next
-    A = np.array([[0,1,0],[0,0,1],[0,0,1]], dtype=float)
-    bibc_slack_0 = frames_next[:,0] - frames[:,1]
-    bibc_slack_1 = frames_next[:,1] - frames[:,2]
-    bibc_slack_2 = frames_next[:,2] - frames[:,2]
+
+    A = np.array([[0, 1, 0], [0, 0, 1], [0, 0, 1]], dtype=float)
+
+    bibc_slack_0 = frames_next[:, 0] - frames[:, 1]
+    bibc_slack_1 = frames_next[:, 1] - frames[:, 2]
+    bibc_slack_2 = frames_next[:, 2] - frames[:, 2]
     vbc_slack = (A @ B.T).T - Bnext
 
-    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
-    axes[0].plot(xs, frames[:,0], label=r"$b_0(x)$")
-    axes[0].plot(xs, frames[:,1], label=r"$b_1(x)$")
-    axes[0].plot(xs, frames[:,2], label=r"$b_2(x)$")
-    axes[0].axhline(0.0, linewidth=1.0)
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4.2))
+
+    axes[0].plot(xs, frames[:, 0], label=r"$b_0(x)$", linewidth=2)
+    axes[0].plot(xs, frames[:, 1], label=r"$b_1(x)$", linewidth=2)
+    axes[0].plot(xs, frames[:, 2], label=r"$b_2(x)$", linewidth=2)
+    axes[0].axhline(0.0, color="black", linewidth=1.2, linestyle="--")
     axes[0].set_title("Backward IBC frames")
+    axes[0].set_xlabel(r"$x$")
+    axes[0].set_ylabel("Value")
     axes[0].legend()
-    axes[1].plot(xs, B[:,0], label=r"$B_1(x)$")
-    axes[1].plot(xs, B[:,1], label=r"$B_2(x)$")
-    axes[1].plot(xs, B[:,2], label=r"$B_3(x)$")
-    axes[1].axhline(0.0, linewidth=1.0)
+
+    axes[1].plot(xs, B[:, 0], label=r"$B_1(x)$", linewidth=2)
+    axes[1].plot(xs, B[:, 1], label=r"$B_2(x)$", linewidth=2)
+    axes[1].plot(xs, B[:, 2], label=r"$B_3(x)$", linewidth=2)
+    axes[1].axhline(0.0, color="black", linewidth=1.2, linestyle="--")
     axes[1].set_title("Encoded forward DT-VBC")
+    axes[1].set_xlabel(r"$x$")
+    axes[1].set_ylabel("Value")
     axes[1].legend()
+
     fig.tight_layout()
-    fig.savefig(os.path.join(fig_dir, "case3_bibc_to_forward_vbc.png"), dpi=220)
+    fig.savefig(os.path.join(fig_dir, "case3_bibc_to_forward_vbc.pdf"), bbox_inches="tight")
     plt.close(fig)
 
     summary = {
@@ -101,13 +122,36 @@ def run_encoding_case(results_dir):
         "min_bibc_slack_0": float(np.min(bibc_slack_0)),
         "min_bibc_slack_1": float(np.min(bibc_slack_1)),
         "min_bibc_slack_2": float(np.min(bibc_slack_2)),
-        "min_vbc_slack_1": float(np.min(vbc_slack[:,0])),
-        "min_vbc_slack_2": float(np.min(vbc_slack[:,1])),
-        "min_vbc_slack_3": float(np.min(vbc_slack[:,2])),
+        "min_vbc_slack_1": float(np.min(vbc_slack[:, 0])),
+        "min_vbc_slack_2": float(np.min(vbc_slack[:, 1])),
+        "min_vbc_slack_3": float(np.min(vbc_slack[:, 2])),
     }
     with open(os.path.join(data_dir, "case3_encoding_summary.json"), "w") as f:
         json.dump(summary, f, indent=2)
     return summary
+
+
+def plot_comparison_methods(df, fig_dir):
+    order = ["Forward DT-VBC", "Backward DT-VBC", "Forward IBC", "Backward IBC"]
+    pivot = df.pivot(index="formulation", columns="system", values="epsilon").loc[order]
+
+    fig, ax = plt.subplots(figsize=(7.2, 4.4))
+    x = np.arange(len(order))
+    w = 0.34
+
+    ax.bar(x - w / 2, pivot["S1"].values, width=w, label="S1")
+    ax.bar(x + w / 2, pivot["S2"].values, width=w, label="S2")
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(order, rotation=18, ha="right")
+    ax.set_ylabel(r"Synthesis margin $\varepsilon$")
+    ax.set_title("Comparison across certificate formulations")
+    ax.legend()
+    fig.tight_layout()
+
+    fig.savefig(os.path.join(fig_dir, "comparison_methods.pdf"), bbox_inches="tight")
+    plt.close(fig)
+
 
 def main():
     repo_root = os.path.dirname(os.path.dirname(__file__))
@@ -140,31 +184,44 @@ def main():
             ("Forward IBC", fwd_ibc),
             ("Backward IBC", bwd_ibc),
         ]:
-            rows.append({
-                "system": sys["name"],
-                "formulation": label,
-                "degree": res["degree"],
-                "num_functions": res["num_functions"],
-                "success": bool(res["success"]),
-                "epsilon": float(res["epsilon"]) if res["success"] else None,
-                "runtime_sec": float(res["runtime_sec"]) if res["success"] else None,
-            })
+            rows.append(
+                {
+                    "system": sys["name"],
+                    "formulation": label,
+                    "degree": res["degree"],
+                    "num_functions": res["num_functions"],
+                    "success": bool(res["success"]),
+                    "epsilon": float(res["epsilon"]) if res["success"] else None,
+                    "runtime_sec": float(res["runtime_sec"]) if res["success"] else None,
+                }
+            )
 
     df = pd.DataFrame(rows)
     df.to_csv(os.path.join(data_dir, "formulation_comparison.csv"), index=False)
 
     plot_certificate(
-        os.path.join(fig_dir, "case1_forward_dt_vbc_synthesized.png"),
+        os.path.join(fig_dir, "case1_forward_dt_vbc_synthesized.pdf"),
         "Case 1 forward DT-VBC",
         chosen["S1"]["forward_dt_vbc"]["coeffs"],
-        SYSTEM1["f"], SYSTEM1["domain"], SYSTEM1["X0"], SYSTEM1["Xu"], seed=1
+        SYSTEM1["f"],
+        SYSTEM1["domain"],
+        SYSTEM1["X0"],
+        SYSTEM1["Xu"],
+        seed=1,
     )
+
     plot_certificate(
-        os.path.join(fig_dir, "case2_backward_dt_vbc_synthesized.png"),
+        os.path.join(fig_dir, "case2_backward_dt_vbc_synthesized.pdf"),
         "Case 2 backward DT-VBC",
         chosen["S2"]["backward_dt_vbc"]["coeffs"],
-        SYSTEM2["f"], SYSTEM2["domain"], SYSTEM2["X0"], SYSTEM2["Xu"], seed=2
+        SYSTEM2["f"],
+        SYSTEM2["domain"],
+        SYSTEM2["X0"],
+        SYSTEM2["Xu"],
+        seed=2,
     )
+
+    plot_comparison_methods(df, fig_dir)
 
     with open(os.path.join(data_dir, "comparison_details.json"), "w") as f:
         json.dump(chosen, f, indent=2)
@@ -180,6 +237,7 @@ def main():
 
     print(df.to_string(index=False))
     print(json.dumps(encoding_summary, indent=2))
+
 
 if __name__ == "__main__":
     main()

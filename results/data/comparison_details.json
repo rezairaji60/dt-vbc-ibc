@@ -25,7 +25,7 @@
           0.65
         ]
       ],
-      "runtime_sec": 0.013152599334716797,
+      "runtime_sec": 0.013020515441894531,
       "message": "Optimization terminated successfully. (HiGHS Status 7: Optimal)",
       "formulation": "Forward DT-VBC",
       "degree": 2,
@@ -56,7 +56,7 @@
           1.5
         ]
       ],
-      "runtime_sec": 0.00974893569946289,
+      "runtime_sec": 0.00919485092163086,
       "message": "Optimization terminated successfully. (HiGHS Status 7: Optimal)",
       "formulation": "Backward DT-VBC",
       "degree": 2,
@@ -87,7 +87,7 @@
         1.5,
         1.5
       ],
-      "runtime_sec": 0.013152599334716797,
+      "runtime_sec": 0.013641119003295898,
       "message": "Optimization terminated successfully. (HiGHS Status 7: Optimal)",
       "formulation": "Forward IBC",
       "degree": 2,
@@ -118,7 +118,7 @@
         1.5,
         1.5
       ],
-      "runtime_sec": 0.01566624641418457,
+      "runtime_sec": 0.011671781539916992,
       "message": "Optimization terminated successfully. (HiGHS Status 7: Optimal)",
       "formulation": "Backward IBC",
       "degree": 2,
@@ -151,7 +151,7 @@
           0.65
         ]
       ],
-      "runtime_sec": 0.010316848754882812,
+      "runtime_sec": 0.011136293411254883,
       "message": "Optimization terminated successfully. (HiGHS Status 7: Optimal)",
       "formulation": "Forward DT-VBC",
       "degree": 2,
@@ -182,7 +182,7 @@
           2.0
         ]
       ],
-      "runtime_sec": 0.011712312698364258,
+      "runtime_sec": 0.008593320846557617,
       "message": "Optimization terminated successfully. (HiGHS Status 7: Optimal)",
       "formulation": "Backward DT-VBC",
       "degree": 2,
@@ -213,7 +213,7 @@
         2.0,
         2.0
       ],
-      "runtime_sec": 0.012670516967773438,
+      "runtime_sec": 0.01237344741821289,
       "message": "Optimization terminated successfully. (HiGHS Status 7: Optimal)",
       "formulation": "Forward IBC",
       "degree": 2,
@@ -244,7 +244,7 @@
         2.0,
         2.0
       ],
-      "runtime_sec": 0.015425682067871094,
+      "runtime_sec": 0.012261152267456055,
       "message": "Optimization terminated successfully. (HiGHS Status 7: Optimal)",
       "formulation": "Backward IBC",
       "degree": 2,

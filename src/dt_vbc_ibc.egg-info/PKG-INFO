@@ -2,18 +2,20 @@ Metadata-Version: 2.4
 Name: dt-vbc-ibc
 Version: 1.0.0
 Summary: Case studies for DT-VBC and IBC experiments
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
-Requires-Dist: numpy>=1.26
+Requires-Dist: numpy>=2.0
 Requires-Dist: pandas>=2.2
 Requires-Dist: matplotlib>=3.8
-Requires-Dist: scipy>=1.11
+Requires-Dist: scipy>=1.13
+Requires-Dist: cvxpy<1.9,>=1.8
+Requires-Dist: sympy>=1.12
 
 # DT-VBC / IBC Case Studies for CDC 2026
 
 This repository contains a GitHub-ready experimental package for the paper:
 
-**Duality of Vector Barrier Certificates and Interpolation-Inspired Barrier Certificates for Discrete-Time Safety Verification**
+**Duality Between Vector and Interpolation-Based Barrier Certificates for Safety Verification**
 
 ## What is included
 
@@ -43,7 +45,6 @@ It is **not** a full SOS/SDP implementation.
 - `src/dt_vbc/`: reusable synthesis and plotting code
 - `experiments/`: experiment driver
 - `results/`: generated figures and tables
-- `paper/`: Overleaf-ready LaTeX section
 
 ## Setup
 

@@ -3,7 +3,10 @@ pyproject.toml
 src/dt_vbc/__init__.py
 src/dt_vbc/common.py
 src/dt_vbc/plotting.py
+src/dt_vbc/poly_basis.py
+src/dt_vbc/sos_utils.py
 src/dt_vbc/synthesis_lp.py
+src/dt_vbc/synthesis_sos.py
 src/dt_vbc/systems.py
 src/dt_vbc_ibc.egg-info/PKG-INFO
 src/dt_vbc_ibc.egg-info/SOURCES.txt

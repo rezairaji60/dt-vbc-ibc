@@ -7,12 +7,14 @@ name = "dt-vbc-ibc"
 version = "1.0.0"
 description = "Case studies for DT-VBC and IBC experiments"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
-    "numpy>=1.26",
+    "numpy>=2.0",
     "pandas>=2.2",
     "matplotlib>=3.8",
-    "scipy>=1.11",
+    "scipy>=1.13",
+    "cvxpy>=1.8,<1.9",
+    "sympy>=1.12",
 ]
 
 [tool.setuptools]
