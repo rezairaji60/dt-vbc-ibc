@@ -2,7 +2,7 @@
 Author: Reza Iraji
 Date:   March 2026
 
-Polynomial basis helpers for SOS skeleton.
+Polynomial basis helpers for SOS.
 """
 from __future__ import annotations
 from dataclasses import dataclass

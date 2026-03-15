@@ -11,51 +11,71 @@ Requires-Dist: scipy>=1.13
 Requires-Dist: cvxpy<1.9,>=1.8
 Requires-Dist: sympy>=1.12
 
-# DT-VBC / IBC Case Studies for CDC 2026
+# DT-VBC / IBC SOS Experiments
 
-This repository contains a GitHub-ready experimental package for the paper:
+This repository contains a Python implementation of **SOS-based certificate synthesis** for the paper:
 
-**Duality Between Vector and Interpolation-Based Barrier Certificates for Safety Verification**
+**Duality Between Vector and Interpolation-Inspired Barrier Certificates for Safety Verification**
 
-## What is included
+## What is implemented
 
-- synthesis of:
-  - forward DT-VBCs
-  - backward DT-VBCs
-  - forward IBCs
-  - backward IBCs
-- a structural encoding example for:
-  - scaled backward IBC -> forward DT-VBC
-- figure generation
-- CSV/JSON summaries
-- an Overleaf-ready LaTeX section for the case studies
+- Forward DT-VBC SOS synthesis
+- Backward DT-VBC SOS synthesis
+- Forward IBC SOS synthesis
+- Backward IBC SOS synthesis
+- Finite outer search over fixed comparison matrices and scaling coefficients
+- Figure generation for the paper
+- CSV/JSON result export
 
-## Method
+## Important modeling note
 
-The paper presents SOS-style synthesis for polynomial systems.  
-This repository implements a lightweight **sample-based LP synthesis prototype** using fixed quadratic templates and dense collocation grids. It is intended for:
-- reproducing the case-study figures,
-- comparing formulations,
-- and supporting the paper's experimental section.
+The polynomial certificate coefficients and SOS multipliers enter the SOS constraints affinely, but a fully joint search over certificate coefficients and:
 
-It is **not** a full SOS/SDP implementation.
+- the DT-VBC comparison matrix `A`, or
+- the IBC scaling coefficients `lambda_i`
 
-## Repository layout
+is bilinear and therefore nonconvex.
 
-- `src/dt_vbc/`: reusable synthesis and plotting code
-- `experiments/`: experiment driver
-- `results/`: generated figures and tables
+To keep each synthesis subproblem convex, this code:
 
-## Setup
+1. Fixes `A` or `lambda` in an **outer search**, and then
+2. Solves a convex SDP in the certificate coefficients, SOS multipliers, and margin `epsilon`.
+
+This avoids the bilinearity issue raised in review.
+
+## Environment
+
+Use **Python 3.11/3.12/3.13 x64 on Linux, WSL, or x64 Windows**.
+
+If you are on **Windows ARM**, `cvxpy` may fail because `clarabel` does not provide wheels for that platform. In that case use one of:
+
+- WSL Ubuntu,
+- a Python x64 environment, or
+- a Linux server.
+
+## Install
 
 ```bash
 pip install -r requirements.txt
-python experiments/run_all.py
+pip install -e .
+```
+
+## Run
+
+```bash
+python experiments/run_all_sos.py
+```
+
+Optional solver selection:
+
+```bash
+DTVBC_SOLVER=SCS python experiments/run_all_sos.py
 ```
 
 ## Outputs
 
-- `results/figures/*.png`
-- `results/data/formulation_comparison.csv`
-- `results/data/summary.json`
-- `paper/experiments_section.tex`
+- `results/data/sos_comparison.csv`
+- `results/data/sos_details.json`
+- `results/figures/case1_forward_dt_vbc_synthesized.pdf`
+- `results/figures/case2_backward_dt_vbc_synthesized.pdf`
+- `results/figures/comparison_methods.pdf`
