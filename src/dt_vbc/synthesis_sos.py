@@ -1,317 +1,486 @@
 """
+Stable collocation-based surrogate synthesis for DT-VBC / IBC experiments.
+
 Author: Reza Iraji
 Date:   March 2026
-
-SOS synthesis for DT-VBC / IBC with fixed comparison parameters.
-
-Important modeling choice:
-- To keep each synthesis problem convex, the comparison matrix A and the IBC
-  scaling coefficients lambda_i are treated as fixed outer-loop parameters.
-- The SDP then searches only for polynomial certificate coefficients,
-  SOS multipliers, and the margin epsilon.
-- A finite outer search over candidate A / lambda values is implemented in
-  experiments/run_all_sos.py.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Sequence, Tuple
+from time import perf_counter
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 import cvxpy as cp
 import numpy as np
 
-from .polynomials import evaluate_monomials_2d, monomial_exponents_2d
+from dt_vbc.polynomials import (
+    eval_poly_2d,
+    evaluate_monomials_2d,
+    monomial_exponents_2d,
+)
+
+
+Array = np.ndarray
 
 
 @dataclass
-class SynthesisResult:
-    formulation: str
-    status: str
-    feasible: bool
-    epsilon: float | None
-    degree: int
-    n_functions: int
-    comparison_matrix: np.ndarray | None
-    coefficients: Dict[str, np.ndarray]
-    notes: str
+class BuiltProblem:
+    problem: cp.Problem
+    variables: Dict[str, cp.Variable]
+    metadata: Dict[str, object]
 
 
-def _build_design(
-    domain_pts: np.ndarray,
-    x0_pts: np.ndarray,
-    xu_pts: np.ndarray,
-    degree: int,
-) -> Dict[str, np.ndarray]:
-    exps = monomial_exponents_2d(degree)
+def _box_boundary_points(box: Tuple[Tuple[float, float], Tuple[float, float]], n: int) -> Array:
+    (xlo, xhi), (ylo, yhi) = box
+    xs = np.linspace(xlo, xhi, n)
+    ys = np.linspace(ylo, yhi, n)
+
+    pts = []
+    for x in xs:
+        pts.append([x, ylo])
+        pts.append([x, yhi])
+    for y in ys[1:-1]:
+        pts.append([xlo, y])
+        pts.append([xhi, y])
+    return np.asarray(pts, dtype=float)
+
+
+def _interior_grid(box: Tuple[Tuple[float, float], Tuple[float, float]], n: int) -> Array:
+    (xlo, xhi), (ylo, yhi) = box
+    xs = np.linspace(xlo, xhi, n)
+    ys = np.linspace(ylo, yhi, n)
+    X, Y = np.meshgrid(xs, ys)
+    return np.column_stack([X.ravel(), Y.ravel()])
+
+
+def _sample_sets(
+    domain: Tuple[Tuple[float, float], Tuple[float, float]],
+    x0_box: Tuple[Tuple[float, float], Tuple[float, float]],
+    xu_box: Tuple[Tuple[float, float], Tuple[float, float]],
+    grid_n_domain: int,
+    grid_n_boundary: int,
+) -> Dict[str, Array]:
     return {
-        "exponents": np.array(exps, dtype=int),
-        "Phi_domain": evaluate_monomials_2d(domain_pts, exps),
-        "Phi_x0": evaluate_monomials_2d(x0_pts, exps),
-        "Phi_xu": evaluate_monomials_2d(xu_pts, exps),
+        "domain": _interior_grid(domain, grid_n_domain),
+        "x0": _box_boundary_points(x0_box, grid_n_boundary),
+        "xu": _box_boundary_points(xu_box, grid_n_boundary),
     }
 
 
-def _make_poly_vars(n_functions: int, n_monomials: int, prefix: str) -> Dict[str, cp.Variable]:
-    return {f"{prefix}{i}": cp.Variable(n_monomials) for i in range(n_functions)}
+def _normalization_constraints(coeff: cp.Variable, exponents: Sequence[Tuple[int, int]]) -> List[cp.Constraint]:
+    """
+    Normalize quadratic templates to avoid arbitrary scaling.
+
+    Preferred normalization:
+      coeff(x1^2) + coeff(x2^2) == 1
+    and constant term <= 0.5 for numerical stability.
+    """
+    idx_x2 = None
+    idx_y2 = None
+    idx_const = None
+    for i, e in enumerate(exponents):
+        if e == (0, 0):
+            idx_const = i
+        elif e == (2, 0):
+            idx_x2 = i
+        elif e == (0, 2):
+            idx_y2 = i
+
+    cons: List[cp.Constraint] = []
+    if idx_x2 is not None and idx_y2 is not None:
+        cons.append(coeff[idx_x2] + coeff[idx_y2] == 1.0)
+        cons.append(coeff[idx_x2] >= 0.05)
+        cons.append(coeff[idx_y2] >= 0.05)
+    if idx_const is not None:
+        cons.append(coeff[idx_const] <= 0.5)
+        cons.append(coeff[idx_const] >= -2.0)
+    return cons
 
 
-def solve_forward_dt_vbc_collocation(
-    domain_pts: np.ndarray,
-    image_pts: np.ndarray,
-    x0_pts: np.ndarray,
-    xu_pts: np.ndarray,
+def _evaluate_affine_poly(Phi: Array, coeff: cp.Variable) -> cp.Expression:
+    return Phi @ coeff
+
+
+def _bisection_search(
+    build_fn,
+    eps_lo: float,
+    eps_hi: float,
+    steps: int,
+    solver: str,
+    solver_kwargs: Optional[Dict] = None,
+):
+    solver_kwargs = dict(solver_kwargs or {})
+    best = None
+    lo = eps_lo
+    hi = eps_hi
+
+    for _ in range(steps):
+        mid = 0.5 * (lo + hi)
+        built = build_fn(mid)
+        try:
+            built.problem.solve(solver=solver, **solver_kwargs)
+        except Exception:
+            hi = mid
+            continue
+
+        status = built.problem.status
+        feasible = status in ("optimal", "optimal_inaccurate")
+        if feasible:
+            lo = mid
+            best = built
+        else:
+            hi = mid
+
+    return best, lo
+
+
+def solve_forward_dt_vbc(
+    dynamics,
+    domain,
+    x0_box,
+    xu_box,
     degree: int,
-    comparison_matrix: np.ndarray,
-    epsilon_upper: float = 1.0,
-) -> SynthesisResult:
-    design = _build_design(domain_pts, x0_pts, xu_pts, degree)
-    exps = design["exponents"]
-    n_monomials = len(exps)
-    m = comparison_matrix.shape[0]
-    coeffs = _make_poly_vars(m, n_monomials, "fwdB")
+    n_components: int,
+    comparison_matrix: Array,
+    grid_n_domain: int = 25,
+    grid_n_boundary: int = 10,
+    eps_hi: float = 0.1,
+    bisection_steps: int = 10,
+    solver: str = "SCS",
+    solver_kwargs: Optional[Dict] = None,
+) -> Dict[str, object]:
+    exponents = monomial_exponents_2d(degree)
+    samples = _sample_sets(domain, x0_box, xu_box, grid_n_domain, grid_n_boundary)
 
-    eps = cp.Variable(nonneg=True)
-    constraints = [eps <= epsilon_upper]
+    Phi_domain = evaluate_monomials_2d(samples["domain"], exponents)
+    Phi_x0 = evaluate_monomials_2d(samples["x0"], exponents)
+    Phi_xu = evaluate_monomials_2d(samples["xu"], exponents)
 
-    B_domain = []
-    B_image = []
-    B_x0 = []
-    B_xu = []
+    f_domain = dynamics(samples["domain"])
+    Phi_f_domain = evaluate_monomials_2d(f_domain, exponents)
 
-    Phi_domain = design["Phi_domain"]
-    Phi_x0 = design["Phi_x0"]
-    Phi_xu = design["Phi_xu"]
-    Phi_image = evaluate_monomials_2d(image_pts, [tuple(e) for e in exps])
+    A = np.asarray(comparison_matrix, dtype=float)
+    assert A.shape == (n_components, n_components)
 
-    for i in range(m):
-        c = coeffs[f"fwdB{i}"]
-        B_domain.append(Phi_domain @ c)
-        B_image.append(Phi_image @ c)
-        B_x0.append(Phi_x0 @ c)
-        B_xu.append(Phi_xu @ c)
+    def build_problem(eps_fixed: float) -> BuiltProblem:
+        coeffs = [cp.Variable(len(exponents), name=f"fwdB{i}") for i in range(n_components)]
+        constraints: List[cp.Constraint] = []
 
-        constraints.append(B_x0[i] <= -eps)
-        constraints.append(B_xu[i] >= eps)
+        for i in range(n_components):
+            Bi_x0 = _evaluate_affine_poly(Phi_x0, coeffs[i])
+            Bi_xu = _evaluate_affine_poly(Phi_xu, coeffs[i])
+            Bi_dom = _evaluate_affine_poly(Phi_domain, coeffs[i])
+            Bi_fdom = _evaluate_affine_poly(Phi_f_domain, coeffs[i])
 
-    for i in range(m):
-        rhs = 0
-        for j in range(m):
-            rhs = rhs + comparison_matrix[i, j] * B_domain[j]
-        constraints.append(B_image[i] <= rhs - eps)
+            constraints += [Bi_x0 <= -eps_fixed]
+            constraints += _normalization_constraints(coeffs[i], exponents)
 
-    objective = cp.Maximize(eps)
-    problem = cp.Problem(objective, constraints)
-    problem.solve(solver=cp.SCS, verbose=False)
+            rhs = 0
+            for j in range(n_components):
+                rhs = rhs + A[i, j] * _evaluate_affine_poly(Phi_domain, coeffs[j])
+            constraints += [Bi_fdom <= rhs - eps_fixed]
 
-    feasible = problem.status in {"optimal", "optimal_inaccurate"} and eps.value is not None
-    out = {
-        name: np.array(var.value).reshape(-1) if var.value is not None else np.zeros(n_monomials)
-        for name, var in coeffs.items()
-    }
-    return SynthesisResult(
-        formulation="Forward DT-VBC",
-        status=problem.status,
-        feasible=feasible,
-        epsilon=float(eps.value) if eps.value is not None else None,
-        degree=degree,
-        n_functions=m,
-        comparison_matrix=comparison_matrix.copy(),
-        coefficients=out,
-        notes="Collocation-based surrogate search with fixed comparison matrix.",
+        # stronger sufficient unsafe separation: choose component 0
+        constraints += [_evaluate_affine_poly(Phi_xu, coeffs[0]) >= eps_fixed]
+
+        obj = cp.Minimize(0.0)
+        problem = cp.Problem(obj, constraints)
+        return BuiltProblem(
+            problem=problem,
+            variables={f"fwdB{i}": coeffs[i] for i in range(n_components)},
+            metadata={"eps_fixed": eps_fixed, "A": A},
+        )
+
+    t0 = perf_counter()
+    built, eps_star = _bisection_search(
+        build_problem,
+        eps_lo=0.0,
+        eps_hi=eps_hi,
+        steps=bisection_steps,
+        solver=solver,
+        solver_kwargs=solver_kwargs,
     )
+    runtime = perf_counter() - t0
 
+    if built is None:
+        return {
+            "status": "infeasible",
+            "epsilon": 0.0,
+            "coefficients": {},
+            "runtime_sec": runtime,
+            "A": A,
+        }
 
-def solve_backward_dt_vbc_collocation(
-    domain_pts: np.ndarray,
-    image_pts: np.ndarray,
-    x0_pts: np.ndarray,
-    xu_pts: np.ndarray,
-    degree: int,
-    comparison_matrix: np.ndarray,
-    epsilon_upper: float = 1.0,
-) -> SynthesisResult:
-    design = _build_design(domain_pts, x0_pts, xu_pts, degree)
-    exps = design["exponents"]
-    n_monomials = len(exps)
-    m = comparison_matrix.shape[0]
-    coeffs = _make_poly_vars(m, n_monomials, "bwdB")
-
-    eps = cp.Variable(nonneg=True)
-    constraints = [eps <= epsilon_upper]
-
-    B_domain = []
-    B_image = []
-    B_x0 = []
-    B_xu = []
-
-    Phi_domain = design["Phi_domain"]
-    Phi_x0 = design["Phi_x0"]
-    Phi_xu = design["Phi_xu"]
-    Phi_image = evaluate_monomials_2d(image_pts, [tuple(e) for e in exps])
-
-    for i in range(m):
-        c = coeffs[f"bwdB{i}"]
-        B_domain.append(Phi_domain @ c)
-        B_image.append(Phi_image @ c)
-        B_x0.append(Phi_x0 @ c)
-        B_xu.append(Phi_xu @ c)
-
-        constraints.append(B_xu[i] <= -eps)
-        constraints.append(B_x0[i] >= eps)
-
-    for i in range(m):
-        rhs = 0
-        for j in range(m):
-            rhs = rhs + comparison_matrix[i, j] * B_image[j]
-        constraints.append(B_domain[i] <= rhs - eps)
-
-    objective = cp.Maximize(eps)
-    problem = cp.Problem(objective, constraints)
-    problem.solve(solver=cp.SCS, verbose=False)
-
-    feasible = problem.status in {"optimal", "optimal_inaccurate"} and eps.value is not None
-    out = {
-        name: np.array(var.value).reshape(-1) if var.value is not None else np.zeros(n_monomials)
-        for name, var in coeffs.items()
+    coeff_out = {
+        name: np.asarray(var.value, dtype=float).reshape(-1)
+        for name, var in built.variables.items()
     }
-    return SynthesisResult(
-        formulation="Backward DT-VBC",
-        status=problem.status,
-        feasible=feasible,
-        epsilon=float(eps.value) if eps.value is not None else None,
-        degree=degree,
-        n_functions=m,
-        comparison_matrix=comparison_matrix.copy(),
-        coefficients=out,
-        notes="Collocation-based surrogate search with fixed comparison matrix.",
-    )
+    return {
+        "status": built.problem.status,
+        "epsilon": float(eps_star),
+        "coefficients": coeff_out,
+        "runtime_sec": runtime,
+        "A": A,
+        "exponents": exponents,
+    }
 
 
-def solve_forward_ibc_collocation(
-    domain_pts: np.ndarray,
-    image_pts: np.ndarray,
-    x0_pts: np.ndarray,
-    xu_pts: np.ndarray,
+def solve_backward_dt_vbc(
+    dynamics,
+    domain,
+    x0_box,
+    xu_box,
     degree: int,
-    k: int,
+    n_components: int,
+    comparison_matrix: Array,
+    grid_n_domain: int = 25,
+    grid_n_boundary: int = 10,
+    eps_hi: float = 0.1,
+    bisection_steps: int = 10,
+    solver: str = "SCS",
+    solver_kwargs: Optional[Dict] = None,
+) -> Dict[str, object]:
+    exponents = monomial_exponents_2d(degree)
+    samples = _sample_sets(domain, x0_box, xu_box, grid_n_domain, grid_n_boundary)
+
+    Phi_domain = evaluate_monomials_2d(samples["domain"], exponents)
+    Phi_x0 = evaluate_monomials_2d(samples["x0"], exponents)
+    Phi_xu = evaluate_monomials_2d(samples["xu"], exponents)
+
+    f_domain = dynamics(samples["domain"])
+    Phi_f_domain = evaluate_monomials_2d(f_domain, exponents)
+
+    A = np.asarray(comparison_matrix, dtype=float)
+    assert A.shape == (n_components, n_components)
+
+    def build_problem(eps_fixed: float) -> BuiltProblem:
+        coeffs = [cp.Variable(len(exponents), name=f"bwdB{i}") for i in range(n_components)]
+        constraints: List[cp.Constraint] = []
+
+        for i in range(n_components):
+            Bi_xu = _evaluate_affine_poly(Phi_xu, coeffs[i])
+            Bi_dom = _evaluate_affine_poly(Phi_domain, coeffs[i])
+            Bi_fdom = _evaluate_affine_poly(Phi_f_domain, coeffs[i])
+
+            constraints += [Bi_xu <= -eps_fixed]
+            constraints += _normalization_constraints(coeffs[i], exponents)
+
+            rhs = 0
+            for j in range(n_components):
+                rhs = rhs + A[i, j] * _evaluate_affine_poly(Phi_f_domain, coeffs[j])
+            constraints += [Bi_dom <= rhs - eps_fixed]
+
+        constraints += [_evaluate_affine_poly(Phi_x0, coeffs[0]) >= eps_fixed]
+
+        obj = cp.Minimize(0.0)
+        problem = cp.Problem(obj, constraints)
+        return BuiltProblem(
+            problem=problem,
+            variables={f"bwdB{i}": coeffs[i] for i in range(n_components)},
+            metadata={"eps_fixed": eps_fixed, "A": A},
+        )
+
+    t0 = perf_counter()
+    built, eps_star = _bisection_search(
+        build_problem,
+        eps_lo=0.0,
+        eps_hi=eps_hi,
+        steps=bisection_steps,
+        solver=solver,
+        solver_kwargs=solver_kwargs,
+    )
+    runtime = perf_counter() - t0
+
+    if built is None:
+        return {
+            "status": "infeasible",
+            "epsilon": 0.0,
+            "coefficients": {},
+            "runtime_sec": runtime,
+            "A": A,
+        }
+
+    coeff_out = {
+        name: np.asarray(var.value, dtype=float).reshape(-1)
+        for name, var in built.variables.items()
+    }
+    return {
+        "status": built.problem.status,
+        "epsilon": float(eps_star),
+        "coefficients": coeff_out,
+        "runtime_sec": runtime,
+        "A": A,
+        "exponents": exponents,
+    }
+
+
+def solve_forward_ibc(
+    dynamics,
+    domain,
+    x0_box,
+    xu_box,
+    degree: int,
+    n_frames: int,
     lambdas: Sequence[float],
-    epsilon_upper: float = 1.0,
-) -> SynthesisResult:
-    design = _build_design(domain_pts, x0_pts, xu_pts, degree)
-    exps = design["exponents"]
-    n_monomials = len(exps)
-    n_frames = k + 1
-    coeffs = _make_poly_vars(n_frames, n_monomials, "fwdibc")
+    grid_n_domain: int = 25,
+    grid_n_boundary: int = 10,
+    eps_hi: float = 0.1,
+    bisection_steps: int = 10,
+    solver: str = "SCS",
+    solver_kwargs: Optional[Dict] = None,
+) -> Dict[str, object]:
+    exponents = monomial_exponents_2d(degree)
+    samples = _sample_sets(domain, x0_box, xu_box, grid_n_domain, grid_n_boundary)
 
-    eps = cp.Variable(nonneg=True)
-    constraints = [eps <= epsilon_upper]
+    Phi_domain = evaluate_monomials_2d(samples["domain"], exponents)
+    Phi_x0 = evaluate_monomials_2d(samples["x0"], exponents)
+    Phi_xu = evaluate_monomials_2d(samples["xu"], exponents)
 
-    Phi_domain = design["Phi_domain"]
-    Phi_x0 = design["Phi_x0"]
-    Phi_xu = design["Phi_xu"]
-    Phi_image = evaluate_monomials_2d(image_pts, [tuple(e) for e in exps])
+    f_domain = dynamics(samples["domain"])
+    Phi_f_domain = evaluate_monomials_2d(f_domain, exponents)
 
-    B_domain = []
-    B_image = []
-    B_x0 = []
-    B_xu = []
+    lambdas = list(lambdas)
+    assert len(lambdas) == n_frames
 
-    for i in range(n_frames):
-        c = coeffs[f"fwdibc{i}"]
-        B_domain.append(Phi_domain @ c)
-        B_image.append(Phi_image @ c)
-        B_x0.append(Phi_x0 @ c)
-        B_xu.append(Phi_xu @ c)
-        constraints.append(B_xu[i] >= eps)
+    def build_problem(eps_fixed: float) -> BuiltProblem:
+        coeffs = [cp.Variable(len(exponents), name=f"fwdI{i}") for i in range(n_frames)]
+        constraints: List[cp.Constraint] = []
 
-    constraints.append(B_x0[0] <= -eps)
+        constraints += [_evaluate_affine_poly(Phi_x0, coeffs[0]) <= -eps_fixed]
 
-    for i in range(k):
-        constraints.append(lambdas[i] * B_image[i + 1] - B_domain[i] <= -eps)
-    constraints.append(lambdas[k] * B_image[k] - B_domain[k] <= -eps)
+        for i in range(n_frames):
+            constraints += _normalization_constraints(coeffs[i], exponents)
+            constraints += [_evaluate_affine_poly(Phi_xu, coeffs[i]) >= eps_fixed]
 
-    objective = cp.Maximize(eps)
-    problem = cp.Problem(objective, constraints)
-    problem.solve(solver=cp.SCS, verbose=False)
+        for i in range(n_frames - 1):
+            lhs = lambdas[i] * _evaluate_affine_poly(Phi_f_domain, coeffs[i + 1]) - _evaluate_affine_poly(Phi_domain, coeffs[i])
+            constraints += [lhs <= -eps_fixed]
 
-    feasible = problem.status in {"optimal", "optimal_inaccurate"} and eps.value is not None
-    out = {
-        name: np.array(var.value).reshape(-1) if var.value is not None else np.zeros(n_monomials)
-        for name, var in coeffs.items()
-    }
-    return SynthesisResult(
-        formulation="Forward IBC",
-        status=problem.status,
-        feasible=feasible,
-        epsilon=float(eps.value) if eps.value is not None else None,
-        degree=degree,
-        n_functions=n_frames,
-        comparison_matrix=None,
-        coefficients=out,
-        notes="Collocation-based surrogate search with fixed positive scalings.",
+        lhs_last = lambdas[-1] * _evaluate_affine_poly(Phi_f_domain, coeffs[-1]) - _evaluate_affine_poly(Phi_domain, coeffs[-1])
+        constraints += [lhs_last <= -eps_fixed]
+
+        problem = cp.Problem(cp.Minimize(0.0), constraints)
+        return BuiltProblem(
+            problem=problem,
+            variables={f"fwdI{i}": coeffs[i] for i in range(n_frames)},
+            metadata={"eps_fixed": eps_fixed, "lambdas": lambdas},
+        )
+
+    t0 = perf_counter()
+    built, eps_star = _bisection_search(
+        build_problem,
+        eps_lo=0.0,
+        eps_hi=eps_hi,
+        steps=bisection_steps,
+        solver=solver,
+        solver_kwargs=solver_kwargs,
     )
+    runtime = perf_counter() - t0
+
+    if built is None:
+        return {
+            "status": "infeasible",
+            "epsilon": 0.0,
+            "coefficients": {},
+            "runtime_sec": runtime,
+            "lambdas": lambdas,
+        }
+
+    coeff_out = {
+        name: np.asarray(var.value, dtype=float).reshape(-1)
+        for name, var in built.variables.items()
+    }
+    return {
+        "status": built.problem.status,
+        "epsilon": float(eps_star),
+        "coefficients": coeff_out,
+        "runtime_sec": runtime,
+        "lambdas": lambdas,
+        "exponents": exponents,
+    }
 
 
-def solve_backward_ibc_collocation(
-    domain_pts: np.ndarray,
-    image_pts: np.ndarray,
-    x0_pts: np.ndarray,
-    xu_pts: np.ndarray,
+def solve_backward_ibc(
+    dynamics,
+    domain,
+    x0_box,
+    xu_box,
     degree: int,
-    k: int,
+    n_frames: int,
     lambdas: Sequence[float],
-    epsilon_upper: float = 1.0,
-) -> SynthesisResult:
-    design = _build_design(domain_pts, x0_pts, xu_pts, degree)
-    exps = design["exponents"]
-    n_monomials = len(exps)
-    n_frames = k + 1
-    coeffs = _make_poly_vars(n_frames, n_monomials, "bwdibc")
+    grid_n_domain: int = 25,
+    grid_n_boundary: int = 10,
+    eps_hi: float = 0.1,
+    bisection_steps: int = 10,
+    solver: str = "SCS",
+    solver_kwargs: Optional[Dict] = None,
+) -> Dict[str, object]:
+    exponents = monomial_exponents_2d(degree)
+    samples = _sample_sets(domain, x0_box, xu_box, grid_n_domain, grid_n_boundary)
 
-    eps = cp.Variable(nonneg=True)
-    constraints = [eps <= epsilon_upper]
+    Phi_domain = evaluate_monomials_2d(samples["domain"], exponents)
+    Phi_x0 = evaluate_monomials_2d(samples["x0"], exponents)
+    Phi_xu = evaluate_monomials_2d(samples["xu"], exponents)
 
-    Phi_domain = design["Phi_domain"]
-    Phi_x0 = design["Phi_x0"]
-    Phi_xu = design["Phi_xu"]
-    Phi_image = evaluate_monomials_2d(image_pts, [tuple(e) for e in exps])
+    f_domain = dynamics(samples["domain"])
+    Phi_f_domain = evaluate_monomials_2d(f_domain, exponents)
 
-    B_domain = []
-    B_image = []
-    B_x0 = []
-    B_xu = []
+    lambdas = list(lambdas)
+    assert len(lambdas) == n_frames
 
-    for i in range(n_frames):
-        c = coeffs[f"bwdibc{i}"]
-        B_domain.append(Phi_domain @ c)
-        B_image.append(Phi_image @ c)
-        B_x0.append(Phi_x0 @ c)
-        B_xu.append(Phi_xu @ c)
-        constraints.append(B_x0[i] >= eps)
+    def build_problem(eps_fixed: float) -> BuiltProblem:
+        coeffs = [cp.Variable(len(exponents), name=f"bwdI{i}") for i in range(n_frames)]
+        constraints: List[cp.Constraint] = []
 
-    constraints.append(B_xu[0] <= -eps)
+        constraints += [_evaluate_affine_poly(Phi_xu, coeffs[0]) <= -eps_fixed]
 
-    for i in range(k):
-        constraints.append(B_domain[i + 1] - lambdas[i] * B_image[i] <= -eps)
-    constraints.append(B_domain[k] - lambdas[k] * B_image[k] <= -eps)
+        for i in range(n_frames):
+            constraints += _normalization_constraints(coeffs[i], exponents)
+            constraints += [_evaluate_affine_poly(Phi_x0, coeffs[i]) >= eps_fixed]
 
-    objective = cp.Maximize(eps)
-    problem = cp.Problem(objective, constraints)
-    problem.solve(solver=cp.SCS, verbose=False)
+        for i in range(n_frames - 1):
+            lhs = _evaluate_affine_poly(Phi_domain, coeffs[i + 1]) - lambdas[i] * _evaluate_affine_poly(Phi_f_domain, coeffs[i])
+            constraints += [lhs <= -eps_fixed]
 
-    feasible = problem.status in {"optimal", "optimal_inaccurate"} and eps.value is not None
-    out = {
-        name: np.array(var.value).reshape(-1) if var.value is not None else np.zeros(n_monomials)
-        for name, var in coeffs.items()
-    }
-    return SynthesisResult(
-        formulation="Backward IBC",
-        status=problem.status,
-        feasible=feasible,
-        epsilon=float(eps.value) if eps.value is not None else None,
-        degree=degree,
-        n_functions=n_frames,
-        comparison_matrix=None,
-        coefficients=out,
-        notes="Collocation-based surrogate search with fixed positive scalings.",
+        lhs_last = _evaluate_affine_poly(Phi_domain, coeffs[-1]) - lambdas[-1] * _evaluate_affine_poly(Phi_f_domain, coeffs[-1])
+        constraints += [lhs_last <= -eps_fixed]
+
+        problem = cp.Problem(cp.Minimize(0.0), constraints)
+        return BuiltProblem(
+            problem=problem,
+            variables={f"bwdI{i}": coeffs[i] for i in range(n_frames)},
+            metadata={"eps_fixed": eps_fixed, "lambdas": lambdas},
+        )
+
+    t0 = perf_counter()
+    built, eps_star = _bisection_search(
+        build_problem,
+        eps_lo=0.0,
+        eps_hi=eps_hi,
+        steps=bisection_steps,
+        solver=solver,
+        solver_kwargs=solver_kwargs,
     )
+    runtime = perf_counter() - t0
+
+    if built is None:
+        return {
+            "status": "infeasible",
+            "epsilon": 0.0,
+            "coefficients": {},
+            "runtime_sec": runtime,
+            "lambdas": lambdas,
+        }
+
+    coeff_out = {
+        name: np.asarray(var.value, dtype=float).reshape(-1)
+        for name, var in built.variables.items()
+    }
+    return {
+        "status": built.problem.status,
+        "epsilon": float(eps_star),
+        "coefficients": coeff_out,
+        "runtime_sec": runtime,
+        "lambdas": lambdas,
+        "exponents": exponents,
+    }

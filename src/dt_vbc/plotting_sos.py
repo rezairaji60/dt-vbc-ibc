@@ -1,120 +1,106 @@
 """
+Paper-quality plotting utilities for collocation/SOS surrogate experiments.
+
 Author: Reza Iraji
 Date:   March 2026
 """
 from __future__ import annotations
 
-from typing import Callable, Dict, List, Sequence, Tuple
+from typing import Callable, Dict, Iterable, List, Sequence, Tuple
 
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 import numpy as np
+from matplotlib.patches import Rectangle
 
-from .polynomials import eval_poly_2d, monomial_exponents_2d
-from .systems_sos import sample_box, simulate_trajectories
-
-
-Box = Tuple[Tuple[float, float], Tuple[float, float]]
+from dt_vbc.polynomials import eval_poly_2d, monomial_exponents_2d
+from dt_vbc.systems_sos import sample_box, simulate_trajectories
 
 
-def _eval_on_grid(
-    coeffs: np.ndarray,
-    degree: int,
-    box: Box,
-    n: int = 240,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def _box_to_rect(box, **kwargs):
     (xlo, xhi), (ylo, yhi) = box
-    xs = np.linspace(xlo, xhi, n)
-    ys = np.linspace(ylo, yhi, n)
-    X, Y = np.meshgrid(xs, ys)
-    pts = np.column_stack([X.ravel(), Y.ravel()])
-    exps = monomial_exponents_2d(degree)
-    z = eval_poly_2d(pts, coeffs, exps)
-    if np.isscalar(z) or getattr(z, "ndim", 1) == 0:
-        z = np.full(X.shape, float(z))
-    else:
-        z = np.asarray(z).reshape(X.shape)
-    return X, Y, z
-
-
-def _add_box(ax: plt.Axes, box: Box, color: str, label: str) -> None:
-    (xlo, xhi), (ylo, yhi) = box
-    rect = patches.Rectangle(
-        (xlo, ylo),
-        xhi - xlo,
-        yhi - ylo,
-        linewidth=2.0,
-        edgecolor=color,
-        facecolor="none",
-        label=label,
-    )
-    ax.add_patch(rect)
+    return Rectangle((xlo, ylo), xhi - xlo, yhi - ylo, fill=False, **kwargs)
 
 
 def plot_dt_vbc_components(
-    outfile: str,
+    output_path: str,
     title: str,
+    vars_xy: Tuple[str, str],
     degree: int,
-    coeffs_map: Dict[str, np.ndarray],
+    coefficients: Dict[str, np.ndarray],
     coeff_names: Sequence[str],
     dynamics: Callable[[np.ndarray], np.ndarray],
-    domain: Box,
-    x0_box: Box,
-    xu_box: Box,
+    domain,
+    x0_box,
+    xu_box,
     seed: int = 0,
-    n_grid: int = 220,
-) -> None:
-    fig, axes = plt.subplots(1, len(coeff_names), figsize=(5.2 * len(coeff_names), 4.4), squeeze=False)
-    axes = axes[0]
+    horizon: int = 18,
+    n_traj: int = 8,
+    grid_n: int = 220,
+):
+    exponents = monomial_exponents_2d(degree)
+    (xlo, xhi), (ylo, yhi) = domain
+    xs = np.linspace(xlo, xhi, grid_n)
+    ys = np.linspace(ylo, yhi, grid_n)
+    X, Y = np.meshgrid(xs, ys)
+    pts = np.column_stack([X.ravel(), Y.ravel()])
 
-    x0_samples = sample_box(x0_box, n=10, seed=seed)
-    trajectories = simulate_trajectories(dynamics, x0_samples, horizon=25)
+    x0_samples = sample_box(x0_box, n_traj, seed=seed)
+    trajs = simulate_trajectories(dynamics, x0_samples, horizon=horizon)
 
-    for ax, name in zip(axes, coeff_names):
-        coeffs = coeffs_map[name]
-        X, Y, Z = _eval_on_grid(coeffs, degree, domain, n=n_grid)
+    fig, axes = plt.subplots(1, len(coeff_names), figsize=(6.2 * len(coeff_names), 5.2))
+    if len(coeff_names) == 1:
+        axes = [axes]
 
-        im = ax.contourf(X, Y, Z, levels=30, cmap="coolwarm")
-        try:
-            ax.contour(X, Y, Z, levels=[0.0], colors="k", linewidths=1.8)
-        except Exception:
-            pass
+    last_im = None
+    comp_labels = [rf"$B_{{{i+1}}}(x)$" for i in range(len(coeff_names))]
 
-        for traj in trajectories:
-            ax.plot(traj[:, 0], traj[:, 1], color="k", linewidth=0.8, alpha=0.6)
+    for ax, name, comp_label in zip(axes, coeff_names, comp_labels):
+        coeff = coefficients[name]
+        z = eval_poly_2d(pts, coeff, exponents).reshape(X.shape)
 
-        _add_box(ax, x0_box, "tab:blue", r"$X_0$")
-        _add_box(ax, xu_box, "tab:orange", r"$X_u$")
+        vabs = max(abs(float(np.nanmin(z))), abs(float(np.nanmax(z))), 1e-6)
+        levels = np.linspace(-vabs, vabs, 19)
+        last_im = ax.contourf(X, Y, z, levels=levels, cmap="coolwarm", extend="both")
 
-        ax.set_title(name)
-        ax.set_xlabel(r"$x_1$")
-        ax.set_ylabel(r"$x_2$")
+        has_zero = float(np.nanmin(z)) <= 0.0 <= float(np.nanmax(z))
+        if has_zero:
+            ax.contour(X, Y, z, levels=[0.0], colors="white", linewidths=3.0)
+            ax.contour(X, Y, z, levels=[0.0], colors="black", linewidths=1.4)
+        else:
+            ax.text(
+                0.03, 0.97, "0-level set outside plot",
+                transform=ax.transAxes, va="top", ha="left",
+                fontsize=9, bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="0.5")
+            )
+
+        ax.add_patch(_box_to_rect(x0_box, edgecolor="tab:blue", linewidth=2.4, label=r"$X_0$"))
+        ax.add_patch(_box_to_rect(xu_box, edgecolor="tab:orange", linewidth=2.4, label=r"$X_u$"))
+
+        for k, tr in enumerate(trajs):
+            ax.plot(tr[:, 0], tr[:, 1], color="black", linewidth=1.0, alpha=0.8)
+
+        ax.set_title(comp_label, fontsize=14)
+        ax.set_xlabel(vars_xy[0], fontsize=13)
+        ax.set_ylabel(vars_xy[1], fontsize=13)
         ax.set_aspect("equal")
+        ax.set_xlim(xlo, xhi)
+        ax.set_ylim(ylo, yhi)
+        ax.grid(alpha=0.15)
 
-    handles, labels = axes[0].get_legend_handles_labels()
-    if handles:
-        fig.legend(handles, labels, loc="upper center", ncol=2, frameon=False)
+    fig.suptitle(title, fontsize=16, y=0.98)
 
-    fig.suptitle(title)
-    fig.colorbar(im, ax=axes.tolist(), fraction=0.03, pad=0.04)
-    fig.tight_layout(rect=[0, 0, 1, 0.93])
-    fig.savefig(outfile, bbox_inches="tight")
-    plt.close(fig)
+    handles = [
+        Rectangle((0, 0), 1, 1, fill=False, edgecolor="tab:blue", linewidth=2.4, label=r"Initial set $X_0$"),
+        Rectangle((0, 0), 1, 1, fill=False, edgecolor="tab:orange", linewidth=2.4, label=r"Unsafe set $X_u$"),
+        plt.Line2D([0], [0], color="black", linewidth=1.2, label="Sample trajectories"),
+        plt.Line2D([0], [0], color="black", linewidth=1.4, linestyle="-", label=r"0-level set"),
+    ]
+    fig.legend(handles=handles, loc="upper center", ncol=4, frameon=True, bbox_to_anchor=(0.5, 0.91))
 
+    cax = fig.add_axes([0.92, 0.18, 0.018, 0.62])
+    cb = fig.colorbar(last_im, cax=cax)
+    cb.set_label("Certificate value", fontsize=11)
 
-def plot_bar_comparison(
-    outfile: str,
-    rows: list[dict],
-) -> None:
-    labels = [f"{r['system']} / {r['formulation']}" for r in rows if r["epsilon"] is not None]
-    values = [float(r["epsilon"]) for r in rows if r["epsilon"] is not None]
-
-    fig, ax = plt.subplots(figsize=(8.5, 3.8))
-    ax.bar(range(len(values)), values)
-    ax.set_xticks(range(len(values)))
-    ax.set_xticklabels(labels, rotation=30, ha="right")
-    ax.set_ylabel(r"collocation margin $\varepsilon$")
-    ax.set_title("Comparison across formulations")
-    fig.tight_layout()
-    fig.savefig(outfile, bbox_inches="tight")
+    fig.tight_layout(rect=[0.02, 0.05, 0.90, 0.88])
+    fig.savefig(output_path, bbox_inches="tight")
     plt.close(fig)
