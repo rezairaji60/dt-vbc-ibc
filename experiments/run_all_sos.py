@@ -6,9 +6,8 @@ Date:   March 2026
 """
 from __future__ import annotations
 
-import itertools
 import os
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -41,77 +40,77 @@ def status_ok(status: str) -> bool:
     return status in ("optimal", "optimal_inaccurate")
 
 
-def candidate_forward_As() -> List[np.ndarray]:
-    vals = [0.0, 0.25, 0.5, 0.75, 1.0]
-    mats = []
-    for a00, a01, a11 in itertools.product(vals, vals, vals):
-        A = np.array([[a00, a01], [0.0, a11]], dtype=float)
-        mats.append(A)
-    return mats
-
-
-def candidate_backward_As() -> List[np.ndarray]:
-    vals = [0.0, 0.25, 0.5, 0.75, 1.0]
-    mats = []
-    for a00, a10, a11 in itertools.product(vals, vals, vals):
-        A = np.array([[a00, 0.0], [a10, a11]], dtype=float)
-        mats.append(A)
-    return mats
-
-
 def candidate_lambdas(n_frames: int) -> List[Tuple[float, ...]]:
     vals = [0.5, 1.0, 1.5]
-    return list(itertools.product(vals, repeat=n_frames))
+    return list((a, b, c) for a in vals for b in vals for c in vals) if n_frames == 3 else []
 
 
-def best_feasible_forward(system_key: str):
+def fixed_forward_A(system_key: str) -> np.ndarray:
+    if system_key == "S1":
+        return np.array([
+            [0.90, 0.00],
+            [0.00, 0.90],
+        ], dtype=float)
+    if system_key == "S2":
+        return np.array([
+            [0.80, 0.10],
+            [0.00, 0.80],
+        ], dtype=float)
+    raise ValueError(f"Unknown system key: {system_key}")
+
+
+def fixed_backward_A(system_key: str) -> np.ndarray:
+    if system_key == "S1":
+        return np.array([
+            [1.00, 0.00],
+            [0.00, 1.00],
+        ], dtype=float)
+    if system_key == "S2":
+        return np.array([
+            [1.10, 0.00],
+            [0.10, 1.10],
+        ], dtype=float)
+    raise ValueError(f"Unknown system key: {system_key}")
+
+
+def run_fixed_forward(system_key: str):
     sys = SYSTEMS[system_key]
-    best = None
-    for A in candidate_forward_As():
-        res = solve_forward_dt_vbc(
-            dynamics=sys.dynamics,
-            domain=sys.domain,
-            x0_box=sys.x0_box,
-            xu_box=sys.xu_box,
-            degree=DEGREE,
-            n_components=2,
-            comparison_matrix=A,
-            grid_n_domain=GRID_N_DOMAIN,
-            grid_n_boundary=GRID_N_BOUNDARY,
-            eps_hi=0.1,
-            bisection_steps=10,
-            solver="SCS",
-            solver_kwargs={"verbose": False, "max_iters": 20000, "eps": 1e-5},
-        )
-        if status_ok(res["status"]):
-            if best is None or res["epsilon"] > best["epsilon"]:
-                best = res
-    return best
+    A = fixed_forward_A(system_key)
+    return solve_forward_dt_vbc(
+        dynamics=sys.dynamics,
+        domain=sys.domain,
+        x0_box=sys.x0_box,
+        xu_box=sys.xu_box,
+        degree=DEGREE,
+        n_components=2,
+        comparison_matrix=A,
+        grid_n_domain=GRID_N_DOMAIN,
+        grid_n_boundary=GRID_N_BOUNDARY,
+        eps_hi=0.1,
+        bisection_steps=10,
+        solver="SCS",
+        solver_kwargs={"verbose": False, "max_iters": 20000, "eps": 1e-5},
+    )
 
 
-def best_feasible_backward(system_key: str):
+def run_fixed_backward(system_key: str):
     sys = SYSTEMS[system_key]
-    best = None
-    for A in candidate_backward_As():
-        res = solve_backward_dt_vbc(
-            dynamics=sys.dynamics,
-            domain=sys.domain,
-            x0_box=sys.x0_box,
-            xu_box=sys.xu_box,
-            degree=DEGREE,
-            n_components=2,
-            comparison_matrix=A,
-            grid_n_domain=GRID_N_DOMAIN,
-            grid_n_boundary=GRID_N_BOUNDARY,
-            eps_hi=0.1,
-            bisection_steps=10,
-            solver="SCS",
-            solver_kwargs={"verbose": False, "max_iters": 20000, "eps": 1e-5},
-        )
-        if status_ok(res["status"]):
-            if best is None or res["epsilon"] > best["epsilon"]:
-                best = res
-    return best
+    A = fixed_backward_A(system_key)
+    return solve_backward_dt_vbc(
+        dynamics=sys.dynamics,
+        domain=sys.domain,
+        x0_box=sys.x0_box,
+        xu_box=sys.xu_box,
+        degree=DEGREE,
+        n_components=2,
+        comparison_matrix=A,
+        grid_n_domain=GRID_N_DOMAIN,
+        grid_n_boundary=GRID_N_BOUNDARY,
+        eps_hi=0.1,
+        bisection_steps=10,
+        solver="SCS",
+        solver_kwargs={"verbose": False, "max_iters": 20000, "eps": 1e-5},
+    )
 
 
 def best_feasible_forward_ibc(system_key: str):
@@ -182,9 +181,8 @@ def main():
 
     rows = []
 
-    # S1
-    s1_fwd = best_feasible_forward("S1")
-    s1_bwd = best_feasible_backward("S1")
+    s1_fwd = run_fixed_forward("S1")
+    s1_bwd = run_fixed_backward("S1")
     s1_fibc = best_feasible_forward_ibc("S1")
     s1_bibc = best_feasible_backward_ibc("S1")
 
@@ -193,9 +191,8 @@ def main():
     rows.append(record_row("S1", "Forward IBC", 3, s1_fibc))
     rows.append(record_row("S1", "Backward IBC", 3, s1_bibc))
 
-    # S2
-    s2_fwd = best_feasible_forward("S2")
-    s2_bwd = best_feasible_backward("S2")
+    s2_fwd = run_fixed_forward("S2")
+    s2_bwd = run_fixed_backward("S2")
     s2_fibc = best_feasible_forward_ibc("S2")
     s2_bibc = best_feasible_backward_ibc("S2")
 
@@ -208,7 +205,7 @@ def main():
     print(df.to_string(index=False))
     df.to_csv(os.path.join(TABLE_DIR, "sos_results_summary.csv"), index=False)
 
-    if s1_fwd is not None:
+    if s1_fwd is not None and status_ok(s1_fwd["status"]):
         plot_dt_vbc_components(
             output_path=os.path.join(FIG_DIR, "case1_forward_dt_vbc_synthesized.pdf"),
             title="Case Study 1: synthesized forward DT-VBC",
@@ -223,7 +220,7 @@ def main():
             seed=1,
         )
 
-    if s2_bwd is not None:
+    if s2_bwd is not None and status_ok(s2_bwd["status"]):
         plot_dt_vbc_components(
             output_path=os.path.join(FIG_DIR, "case2_backward_dt_vbc_synthesized.pdf"),
             title="Case Study 2: synthesized backward DT-VBC",

@@ -1,0 +1,11 @@
+system,formulation,degree,functions,status,epsilon,runtime_sec,parameter
+S1,Forward DT-VBC,2,2,optimal,0.09990234375000001,0.15218269999604672,"[[0. 0.]
+ [0. 0.]]"
+S1,Backward DT-VBC,2,2,infeasible,0.0,,
+S1,Forward IBC,2,3,optimal,0.09990234375000001,0.21113539999350905,"[0.5, 0.5, 1.5]"
+S1,Backward IBC,2,3,infeasible,0.0,,
+S2,Forward DT-VBC,2,2,optimal,0.09990234375000001,0.15234219998819754,"[[0.   0.25]
+ [0.   0.5 ]]"
+S2,Backward DT-VBC,2,2,infeasible,0.0,,
+S2,Forward IBC,2,3,optimal,0.09990234375000001,0.21823070000391454,"[0.5, 0.5, 1.5]"
+S2,Backward IBC,2,3,infeasible,0.0,,
