@@ -1,0 +1,13 @@
+system,formulation,degree,functions,status,epsilon,runtime_sec,parameter,parameter_index,coefficients
+S1,Forward DT-VBC,2,2,optimal_inaccurate,0.7675628662109375,7.7181243896484375,"[[0.6 0. ]
+ [0.  0.6]]",0,<stored in memory>
+S1,Backward DT-VBC,2,2,infeasible,0.0,,"[[1. 0.]
+ [0. 1.]]",-1,<stored in memory>
+S1,Forward IBC,2,3,optimal_inaccurate,0.4026031494140625,15.609227418899536,"[0.75, 0.75, 1.5]",3,<stored in memory>
+S1,Backward IBC,2,3,infeasible,0.0,,"[1.0, 1.0, 1.0]",-1,<stored in memory>
+S2,Forward DT-VBC,2,2,optimal_inaccurate,0.07404327392578125,8.14614987373352,"[[0.85 0.  ]
+ [0.   0.85]]",2,<stored in memory>
+S2,Backward DT-VBC,2,2,optimal_inaccurate,0.015869140625,2.6116859912872314,"[[1.2 0. ]
+ [0.  1.2]]",0,<stored in memory>
+S2,Forward IBC,2,3,optimal_inaccurate,0.060070037841796875,20.43054485321045,"[0.75, 0.75, 1.25]",1,<stored in memory>
+S2,Backward IBC,2,3,optimal_inaccurate,0.020008087158203125,21.55948519706726,"[1.2, 1.2, 1.2]",0,<stored in memory>
