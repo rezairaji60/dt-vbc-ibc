@@ -21,7 +21,7 @@ function normalized_template!(model,x,m,d,normalization)
     z=MP.monomials(x,0:d); n=length(z)
     C=@variable(model,[1:m,1:n])
     if normalization==:symmetric_l1
-        T=@variable(model,[1:m,1:n]>=0)
+        T=@variable(model,[1:m,1:n],lower_bound=0)
         for i in 1:m,j in 1:n
             @constraint(model,C[i,j]<=T[i,j])
             @constraint(model,-C[i,j]<=T[i,j])

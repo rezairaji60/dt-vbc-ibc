@@ -15,7 +15,11 @@ end
     @test domain_audit(benchmark("S2_original"))["status"]=="NOT_INVARIANT"
     @test domain_audit(benchmark("S2_repaired"))["status"]=="EXACT_INVARIANT"
     P=benchmark("S2_original")
-    @test compose(P.f[1],P.x,fill(rat(3//25),2)) > rat(3//25)
+    @test iszero(compose(P.f[1],P.x,fill(rat(3//25),2))-rat(46071//312500))
+    @test rat(46071//312500)>rat(3//25)
+    P=benchmark("S1")
+    changed=merge(P,(;f=[P.f[1]+1,P.f[2]]))
+    @test domain_audit(changed)["status"]=="DOMAIN_NOT_ESTABLISHED"
 end
 @testset "Exact S1 proofs, replay and tamper rejection" begin
     bundles=exact_s1()

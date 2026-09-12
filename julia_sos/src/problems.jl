@@ -53,6 +53,14 @@ function frompolydata(data,x)
 end
 generators(x,K) = [(x[i]-K[i][1])*(K[i][2]-x[i]) for i in eachindex(x)]
 function domain_audit(P)
+    # The analytic domain proofs apply only to these exact, versioned problems.
+    reference=benchmark(P.name)
+    sameboxes=P.X==reference.X && P.X0==reference.X0 && P.Xu==reference.Xu
+    samedynamics=length(P.f)==length(reference.f) &&
+        all(iszero(P.f[i]-compose(reference.f[i],reference.x,P.x)) for i in eachindex(P.f))
+    if !(sameboxes && samedynamics)
+        return Dict("status"=>"DOMAIN_NOT_ESTABLISHED", "proof"=>"Benchmark data changed; a fresh domain proof is required.")
+    end
     if P.name == "S1"
         # a(x)=.72-.12x^2 and d(y)=.68-.08y^2 are positive on X.
         amin = rat(18//25)-rat(3//25)*rat(7//5)^2
