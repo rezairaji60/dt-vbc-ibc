@@ -7,6 +7,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  pull-requests: write
 concurrency:
   group: julia-sos-${{ github.ref }}
   cancel-in-progress: true
@@ -37,16 +38,6 @@ jobs:
         run: |
           set -o pipefail
           julia --project=julia_sos julia_sos/experiments/run_audit.jl 2>&1 | tee julia_sos/results/audit.log
-      - name: Failure diagnostics
-        if: failure()
-        shell: bash
-        run: |
-          for file in julia_sos/results/tests.log julia_sos/results/audit.log; do
-            if [ -f "$file" ]; then
-              message=$(tail -c 5500 "$file" | tr '\n' ' ')
-              echo "::error title=Julia diagnostics::$message"
-            fi
-          done
       - name: Preserve reproducibility evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -57,3 +48,21 @@ jobs:
             julia_sos/Manifest.toml
             julia_sos/results/
           retention-days: 14
+      - name: Record tested evidence on this private PR
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const files = ['tests.log', 'audit.log', 'summary.json'];
+            const sections = [];
+            for (const file of files) {
+              const p = 'julia_sos/results/' + file;
+              if (fs.existsSync(p)) {
+                const text = fs.readFileSync(p, 'utf8').slice(-14000).replace(/```/g, '~~~');
+                sections.push('### ' + file + '\n```text\n' + text + '\n```');
+              }
+            }
+            const head = context.payload.pull_request.head.sha;
+            const body = '## Julia audit execution evidence\nHead: `' + head + '`\nRun: ' + context.runId + '\n\n' + sections.join('\n\n');
+            await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
