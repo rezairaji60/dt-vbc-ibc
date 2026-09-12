@@ -13,10 +13,11 @@ concurrency:
 jobs:
   audit:
     runs-on: ubuntu-22.04
-    timeout-minutes: 25
+    timeout-minutes: 30
     env:
       JULIA_NUM_THREADS: '2'
       OPENBLAS_NUM_THREADS: '1'
+      AUDIT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
@@ -25,15 +26,27 @@ jobs:
       - uses: julia-actions/cache@v2
       - name: Instantiate recorded Julia environment
         run: julia --project=julia_sos -e 'using Pkg; Pkg.instantiate(); Pkg.precompile(); Pkg.status()'
-      - name: Unit tests and SOS smoke test
-        run: julia --project=julia_sos julia_sos/test/runtests.jl
-      - name: Current-case audit
+      - name: Exact proof tests and genuine SOS test
+        shell: bash
         run: |
-          if [ -f julia_sos/experiments/run_audit.jl ]; then
-            julia --project=julia_sos julia_sos/experiments/run_audit.jl
-          else
-            echo 'Bootstrap only: no benchmark claims.'
-          fi
+          mkdir -p julia_sos/results
+          set -o pipefail
+          julia --project=julia_sos julia_sos/test/runtests.jl 2>&1 | tee julia_sos/results/tests.log
+      - name: Current-case synthesis and normalization ablation
+        shell: bash
+        run: |
+          set -o pipefail
+          julia --project=julia_sos julia_sos/experiments/run_audit.jl 2>&1 | tee julia_sos/results/audit.log
+      - name: Failure diagnostics
+        if: failure()
+        shell: bash
+        run: |
+          for file in julia_sos/results/tests.log julia_sos/results/audit.log; do
+            if [ -f "$file" ]; then
+              message=$(tail -c 5500 "$file" | tr '\n' ' ')
+              echo "::error title=Julia diagnostics::$message"
+            fi
+          done
       - name: Preserve reproducibility evidence
         if: always()
         uses: actions/upload-artifact@v4
