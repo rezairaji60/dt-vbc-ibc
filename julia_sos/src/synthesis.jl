@@ -50,6 +50,10 @@ end
 function synthesize(P,family::Symbol,parameter;degree=2,order=3,separation=1//1000,
                     reserve=1//1000000,normalization=:symmetric_l1,fixed_B=nothing,
                     optimizer=CSDP.Optimizer)
+    rat(separation)>0 || throw(ArgumentError("separation must be strictly positive"))
+    rat(reserve)>=0 || throw(ArgumentError("SOS reserve must be nonnegative"))
+    domain=domain_audit(P)
+    domain["status"]=="DOMAIN_NOT_ESTABLISHED" && throw(ArgumentError("changed benchmark requires a new problem identifier and domain proof"))
     m=family in (:forward_vbc,:backward_vbc) ? size(parameter,1) : length(parameter)
     model=SOSModel(optimizer);set_silent(model)
     C=nothing;z=nothing
@@ -65,17 +69,18 @@ function synthesize(P,family::Symbol,parameter;degree=2,order=3,separation=1//10
     @objective(model,Min,0)
     elapsed=@elapsed optimize!(model)
     meta=Dict{String,Any}("problem"=>P.name,"family"=>String(family),"degree"=>degree,
-        "relaxation_order"=>order,"components"=>m,"normalization"=>String(normalization),
+        "relaxation_order"=>order,"components"=>m,"normalization"=>(fixed_B===nothing ? String(normalization) : "fixed_coefficients_no_normalization"),
         "sos_reserve"=>string(rat(reserve)),"separation"=>string(rat(separation)),
         "termination_status"=>string(termination_status(model)),
         "primal_status"=>string(primal_status(model)),"runtime_seconds"=>elapsed,
-        "scalar_variables"=>num_variables(model),"domain"=>domain_audit(P))
-    if !has_values(model)
+        "timing_scope"=>"optimize! only; first-call compilation included; model build and proof replay excluded",
+        "scalar_variables"=>num_variables(model),"domain"=>domain)
+    if !has_values(model) || !(primal_status(model) in (MOI.FEASIBLE_POINT,MOI.NEARLY_FEASIBLE_POINT))
         meta["status"]="NO_CERTIFIED_CANDIDATE"
         meta["interpretation"]="Solver outcome for this fixed relaxation only; not certificate nonexistence."
         return meta,nothing
     end
-    Bq=fixed_B===nothing ? [sum(rat(value(C[i,j]))*z[j] for j in eachindex(z)) for i in 1:m] : [qpoly(p,P.x) for p in B]
+    Bq=fixed_B===nothing ? [sum(rat(value(C[i,j]))*z[j] for j in eachindex(z)) for i in 1:m] : [qpoly(p,P.x) for p in fixed_B]
     bundle=bundle_base(P,family,Bq,parameter,separation)
     bundle["origin"]="numerical_SOS_candidate_with_exact_replay"
     shifts=QQ[]

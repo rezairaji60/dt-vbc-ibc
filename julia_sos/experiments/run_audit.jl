@@ -70,5 +70,6 @@ bundle!==nothing && write_json(joinpath(out,"S1_legacy_normalization_candidate.j
 notice("S1 normalization ablation",meta)
 write_json(joinpath(out,"summary.json"),Dict("metadata"=>metadata,"results"=>results))
 # A code/regression failure must not masquerade as mathematical infeasibility.
-@assert all(r["status"]=="EXACT_RATIONAL_VERIFIED" for r in results if r["problem"]=="S1" && r["normalization"]=="symmetric_l1")
+corrected=[r for r in results if r["normalization"]=="symmetric_l1"]
+@assert length(corrected)==8 && all(r["status"]=="EXACT_RATIONAL_VERIFIED" for r in corrected)
 println("Current-case audit complete. See exact certificates and fail-closed statuses in ",out)

@@ -1,68 +1,20 @@
-# DT-VBC / IBC SOS Experiments
+# DT-VBC / IBC: simulation-first Julia SOS audit
 
-This repository contains a Python implementation of **SOS-based certificate synthesis** for the paper:
+The current reconstruction for **Systems & Control Letters** is in [`julia_sos/`](julia_sos/README.md).
+It uses genuine polynomial coefficient identities and PSD Gram matrices, followed
+by independent exact-rational verification. Start with the
+[scientific audit](docs/SCL_SIMULATION_AUDIT.md) and
+[recorded execution evidence](docs/EXECUTION_EVIDENCE.md).
 
-**Duality Between Vector and Interpolation-Inspired Barrier Certificates for Safety Verification**
+**Historical implementation warning:** `src/dt_vbc/synthesis_sos.py` is sampled
+collocation, despite the old filename and README calling it SOS. Its historical
+outputs are not formal SOS certificates and must not be reused as the revised
+paper's verified results. Python source and old result files are retained intact.
+The baseline is `b2fbd9be3a8b5de0212dc86b88965f90d0c32257`.
 
-## What is implemented
+The Julia audit establishes quadratic feasibility of all four formulations for
+S1 and for S2 with an explicitly enlarged invariant verification box. These are
+feasibility and correctness results, not a new best-margin competition, an
+expressiveness theorem, or a declaration that the paper is ready for submission.
 
-- Forward DT-VBC SOS synthesis
-- Backward DT-VBC SOS synthesis
-- Forward IBC SOS synthesis
-- Backward IBC SOS synthesis
-- Finite outer search over fixed comparison matrices and scaling coefficients
-- Figure generation for the paper
-- CSV/JSON result export
-
-## Important modeling note
-
-The polynomial certificate coefficients and SOS multipliers enter the SOS constraints affinely, but a fully joint search over certificate coefficients and:
-
-- the DT-VBC comparison matrix `A`, or
-- the IBC scaling coefficients `lambda_i`
-
-is bilinear and therefore nonconvex.
-
-To keep each synthesis subproblem convex, this code:
-
-1. Fixes `A` or `lambda` in an **outer search**, and then
-2. Solves a convex SDP in the certificate coefficients, SOS multipliers, and margin `epsilon`.
-
-This avoids the bilinearity issue raised in review.
-
-## Environment
-
-Use **Python 3.11/3.12/3.13 x64 on Linux, WSL, or x64 Windows**.
-
-If you are on **Windows ARM**, `cvxpy` may fail because `clarabel` does not provide wheels for that platform. In that case use one of:
-
-- WSL Ubuntu,
-- a Python x64 environment, or
-- a Linux server.
-
-## Install
-
-```bash
-pip install -r requirements.txt
-pip install -e .
-```
-
-## Run
-
-```bash
-python experiments/run_all_sos.py
-```
-
-Optional solver selection:
-
-```bash
-DTVBC_SOLVER=SCS python experiments/run_all_sos.py
-```
-
-## Outputs
-
-- `results/data/sos_comparison.csv`
-- `results/data/sos_details.json`
-- `results/figures/case1_forward_dt_vbc_synthesized.pdf`
-- `results/figures/case2_backward_dt_vbc_synthesized.pdf`
-- `results/figures/comparison_methods.pdf`
+The implementation branch is `fix/scl-julia-sos-audit`, reviewed in draft PR #1.

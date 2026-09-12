@@ -9,6 +9,7 @@ const MOI=JuMP.MOI
     @test !psd_exact(QQ[1 0;0 -1//1000000000000])
     @test !psd_exact(QQ[1 1;0 1])
     @test_throws ArgumentError path_matrix([1,0])
+    @test path_matrix([1.25];reciprocal=true)==reshape(rat.([4//5]),1,1)
 end
 @testset "Domains and trajectories" begin
     @test domain_audit(benchmark("S1"))["status"]=="EXACT_INVARIANT"
@@ -20,6 +21,9 @@ end
     P=benchmark("S1")
     changed=merge(P,(;f=[P.f[1]+1,P.f[2]]))
     @test domain_audit(changed)["status"]=="DOMAIN_NOT_ESTABLISHED"
+    @test_throws ArgumentError synthesize(changed,:forward_vbc,reshape([0.8],1,1))
+    bb=AuditSOS.bundle_base(P,:forward_vbc,[P.x[1]^2+P.x[2]^2-rat(1//10)],reshape([0.8],1,1),0.001)
+    @test bb["parameter"]==[["4//5"]]
 end
 @testset "Exact S1 proofs, replay and tamper rejection" begin
     bundles=exact_s1()
@@ -71,5 +75,9 @@ end
     @test bundle!==nothing
     @test meta["status"]=="EXACT_RATIONAL_VERIFIED"
     @test verify_bundle(JSON3.read(JSON3.write(bundle)))["verified"]
+    g=P.x[1]^2+P.x[2]^2-(rat(1//3)+BigInt(1)//BigInt(10)^15)
+    mf,bf=synthesize(P,:forward_vbc,reshape([0.8],1,1);fixed_B=[g])
+    @test mf["status"]=="EXACT_RATIONAL_VERIFIED"
+    @test iszero(frompolydata(bf["B"][1],P.x)-g)
 end
 println("::notice title=Julia tests::Exact proofs, domain checks, mappings, tamper rejection and genuine SOS tests passed.")

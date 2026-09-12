@@ -51,7 +51,7 @@ function readgram(record,x,n)
 end
 function bundle_base(P,family,B,parameter,separation)
     pm = family in (:forward_vbc,:backward_vbc) ?
-        [string.(parameter[i,:]) for i in axes(parameter,1)] : string.(parameter)
+        [string.(rat.(parameter[i,:])) for i in axes(parameter,1)] : string.(rat.(parameter))
     return Dict{String,Any}("schema"=>"dt-vbc-sos-exact-v1","problem"=>P.name,
         "family"=>String(family),"B"=>[polydata(qpoly(p,P.x),P.x) for p in B],
         "parameter"=>pm,"separation"=>string(rat(separation)),
