@@ -2,9 +2,13 @@
 PSD decision matrices and coefficient identities replace ALL sampled inequalities.
 order is a relaxation order: each product has total degree at most 2*order.
 """
+# Numerical candidate generation uses Float64 data. The independent verifier
+# rebuilds the original rational problem and accounts for every rounding error.
+floatpoly(p,x)=sum((Float64(MP.coefficient(t))*MP.monomial(t) for t in MP.terms(p+0*x[1]));init=0.0*x[1])
 function putinar!(model,p,x,K;order=3,reserve=1//1000000)
     2*order>=MP.maxdegree(p) || throw(ArgumentError("relaxation order too small"))
-    gs=generators(x,K); blocks=Any[]; rhs=0*x[1]
+    gs=[(x[i]-Float64(K[i][1]))*(Float64(K[i][2])-x[i]) for i in eachindex(x)]
+    blocks=Any[]; rhs=0.0*x[1]
     for idx in 0:length(gs)
         d=idx==0 ? order : order-1
         d>=0 || throw(ArgumentError("invalid multiplier degree"))
@@ -53,9 +57,10 @@ function synthesize(P,family::Symbol,parameter;degree=2,order=3,separation=1//10
         B,C,z=normalized_template!(model,P.x,m,degree,normalization)
     else
         length(fixed_B)==m || throw(DimensionMismatch("fixed certificate"))
-        B=fixed_B
+        B=[floatpoly(p,P.x) for p in fixed_B]
     end
-    obs=obligations(P,family,B,parameter;separation=separation)
+    numerical_problem=merge(P,(;f=[floatpoly(p,P.x) for p in P.f]))
+    obs=obligations(numerical_problem,family,B,Float64.(parameter);separation=Float64(separation))
     proofs=[putinar!(model,o.p,P.x,o.box;order=order,reserve=reserve) for o in obs]
     @objective(model,Min,0)
     elapsed=@elapsed optimize!(model)
