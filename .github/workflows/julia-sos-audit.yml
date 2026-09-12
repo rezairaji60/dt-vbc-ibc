@@ -1,0 +1,46 @@
+name: Julia SOS reviewer audit
+on:
+  pull_request:
+    paths:
+      - 'julia_sos/**'
+      - '.github/workflows/julia-sos-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: julia-sos-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  audit:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    env:
+      JULIA_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.10.10'
+      - uses: julia-actions/cache@v2
+      - name: Instantiate recorded Julia environment
+        run: julia --project=julia_sos -e 'using Pkg; Pkg.instantiate(); Pkg.precompile(); Pkg.status()'
+      - name: Unit tests and SOS smoke test
+        run: julia --project=julia_sos julia_sos/test/runtests.jl
+      - name: Current-case audit
+        run: |
+          if [ -f julia_sos/experiments/run_audit.jl ]; then
+            julia --project=julia_sos julia_sos/experiments/run_audit.jl
+          else
+            echo 'Bootstrap only: no benchmark claims.'
+          fi
+      - name: Preserve reproducibility evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: julia-sos-audit-${{ github.sha }}
+          path: |
+            julia_sos/Project.toml
+            julia_sos/Manifest.toml
+            julia_sos/results/
+          retention-days: 14
