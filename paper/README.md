@@ -4,7 +4,9 @@ Fixed paper title:
 
 **Duality and Complementarity of Vector and Interpolation-Inspired Barrier Certificates for Safety Verification: Toward Reduced Conservatism and Complexity**
 
-The computational repository is organized around this story, but the article body is intentionally the next editing phase. The manuscript revision must cleanly separate:
+The computational repository is organized around this story, but the article body is intentionally the next editing phase. `main.tex` remains the pre-extension manuscript draft until that paper pass; its current title/body must not be treated as the final coauthor-review version.
+
+The manuscript revision must cleanly separate:
 
 1. degree-preserving structural duality for the aligned globally scaled path subclass;
 2. the rotation-side degree separation favoring cyclic VBC coupling;
