@@ -1,4 +1,4 @@
-Scaled IBCs admit exact anchored path-matrix representations.
-SOS witnesses transfer between equivalent certificates without re-solving.
-Finite-order dynamics separate affine cyclic VBCs from implication IBCs.
-Exact-rational replay distinguishes proof from numerical feasibility.
+Scaled path IBCs and anchored path VBCs are structurally dual.
+Cyclic VBC coupling reduces the minimum degree on finite-order examples.
+Conditional IBC induction avoids an affine global-comparison obstruction.
+Exact replay separates analytical nonexistence from numerical solver failure.
