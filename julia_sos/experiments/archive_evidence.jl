@@ -1,10 +1,9 @@
 using SHA
 import JSON3
 repo=normpath(joinpath(@__DIR__,"..",".."))
-source=readchomp(Cmd(["git","rev-parse","HEAD"];dir=repo))
+source=readchomp(Cmd(Cmd(["git","rev-parse","HEAD"]);dir=repo))
 out=joinpath(repo,"evidence","reviewer")
 mkpath(out)
-# This is a one-time, guarded archive. Later runs never silently replace it.
 isfile(joinpath(out,"artifact_index.json")) && error("Archive already exists")
 results=joinpath(repo,"julia_sos","results")
 for name in readdir(results)

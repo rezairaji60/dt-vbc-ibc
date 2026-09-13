@@ -2,16 +2,17 @@
 
 | Concern | Revision | Evidence and limit |
 |---|---|---|
-| Reviewer 5: unclear goal | Proof transport without another SDP and strict degree separation are primary objectives. | Exact-correspondence, transport and finite-order results; no optimization-duality claim. |
-| Reviewer 5: bilinear scales, unspecified SOS multipliers | Every solve fixes parameters; explicit PSD Gram matrices and polynomial identities. | `synthesis.jl`; no sampled points certify positivity. |
-| Reviewer 5: nonnegative is not strictly positive | Both separation sides have explicit positive margins. | Robust anchored class is an explicit strengthening, not attributed to the original weak definition. |
-| Reviewer 7: theorem and numerical comparison disagree | Matched dimensions and exact parameter maps; entire SOS proof transported. | IBC proofs replay as VBCs without re-solving. |
-| Reviewer 7: trajectories stay in initial set | S1 is an invariant-box sanity check. S2 and added cases leave their initial boxes. | Leaving the box does not itself imply difficulty. |
-| Reviewer 3: no converse | Both directions of the restricted path-matrix equivalences are proved. | No arbitrary-matrix converse. |
-| Reviewer 3: no strictness | Finite-order obstruction excludes all affine global scaled IBCs regardless of frame count; cyclic affine VBCs exist. | Analytical theorem and exact Rotation2/4 witnesses, not SDP infeasibility or graph support alone. |
-| Editor/reviewer 3: modest contribution | Degree theorem and zero-reserve obstruction; honest external cases and scalar baselines. | Coauthors must independently check proofs and relation to original IBC/path-complete literature. |
-| Main proof omitted | All stated results have proofs. | `paper/main.tex`. |
-| Historical computation claimed SOS | Historical source retained and labeled collocation. | New tables use genuine SOS plus exact replay. |
-| S2 domain incorrect | Explicitly enlarged invariant box; original retained and rejected by domain check. | Same dynamics, initial and unsafe sets. |
+| Reviewer 5: unclear goal | Proof reuse without another SDP and a strict degree distinction. | Exact correspondence, proof transport and finite-order theorem; no optimization-duality claim. |
+| Reviewer 5: bilinear scales and unspecified multipliers | Parameters fixed per solve; explicit PSD Gram matrices and coefficient identities. | Genuine Julia SOS, not collocation. |
+| Reviewer 5: strict positivity gap | Uniform positive separation margins in the representation theorem. | Explicitly strengthened class, not silently equated with weak separation. |
+| Reviewer 7: theory/numerics mismatch | Same number of functions, mapped matrices and symmetric normalization. | Entire IBC SOS proof transports and replays as VBC without solving again. |
+| Reviewer 7: trajectories stay inside initial set | S1 is labeled a sanity check; S2 and additions leave their initial boxes. | Leaving a box is not itself proof of difficulty. |
+| Reviewer 3: missing converse | Both directions for the exact anchored path-matrix subclass. | No arbitrary-matrix equivalence. |
+| Reviewer 3: no strictness | Finite-order orbit-average theorem excludes affine implication IBCs of any finite length; cyclic affine VBCs exist. | Stronger than the scaled-only obstruction; no SDP infeasibility inference. |
+| Editor: modest practical/conceptual contribution | Tight degree-one versus degree-two result; exact proof transport; verified numerical diagnosis. | Independent novelty and proof review by coauthors still required. |
+| Omitted proof | Complete proofs for every stated result. | `paper/main.tex`. |
+| Historical SOS claim | Old active solver labeled collocation; historical files retained. | New tables come from genuine SOS and exact replay. |
+| Invalid S2 domain | Explicit enlarged invariant domain; original retained and rejected. | Dynamics and safety sets unchanged. |
+| Reproducibility | Single run command, pinned environment and committed proof archive. | Numerical candidates accepted only by independent exact checking. |
 
-This is an internal response matrix, not a claim that the journal has accepted the revisions.
+The theorem's implication-class scope is explained in `IMPLICATION_OBSTRUCTION.md`. This matrix records revisions, not editorial acceptance.

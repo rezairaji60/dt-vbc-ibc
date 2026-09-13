@@ -2,11 +2,11 @@ Dear Editors of Systems & Control Letters,
 
 Please consider the manuscript "Beyond path-structured barrier certificates: exact embeddings, degree separation, and verified SOS synthesis" by Reza Iraji, Vishnu Murali, and Majid Zamani.
 
-The paper studies when vector and globally scaled interpolation-inspired barrier certificates are interchangeable and when coupling structure changes the minimum polynomial degree. It proves a bidirectional correspondence for the anchored path-matrix subclass and transports SOS witnesses without another optimization. A finite-order obstruction rules out affine globally scaled IBCs of any finite length for a class of linear transitions, while cyclic affine vector certificates prove safety. This is a strict template-level result, not an inference from failed numerical searches.
+The paper studies when vector and interpolation-inspired barrier certificates are interchangeable and when their coupling structure changes the minimum polynomial degree. It proves a bidirectional correspondence for the robust anchored globally scaled path-matrix subclass, including transport of SOS witnesses without another optimization. Separately, a finite-order orbit-average obstruction rules out affine implication-style IBCs of any finite length for a class of linear transitions, while cyclic affine vector certificates prove safety. Quadratic repeated frames exist, making the degree separation tight. This distinction holds before an SOS relaxation is imposed.
 
-The Julia artifact uses genuine semidefinite SOS synthesis and independent exact-rational replay. It includes a corrected analysis of two polynomial examples, a source-matched external task, an explicitly labeled logistic-map adaptation, scalar baselines, and exact two- and four-dimensional structural witnesses. The limits of these comparisons are stated explicitly.
+The Julia artifact combines genuine semidefinite SOS synthesis with independent exact-rational replay. It includes corrected polynomial examples, a source-matched external task, an explicitly labeled logistic-map adaptation, scalar baselines, and exact two- and four-dimensional structural witnesses. The limits of these comparisons are stated explicitly.
 
-We believe the theorem-led analysis and its safety-verification implications are relevant to the readership of Systems & Control Letters.
+We believe the theorem-led analysis and its safety-verification implications are relevant to Systems & Control Letters.
 
 Sincerely,
 Reza Iraji

@@ -44,3 +44,19 @@ end
     @test all(iszero(v) for v in D*(A*B-[compose(p,P.x,P.f) for p in B])-
         (C*(D*B)-[compose(p,P.x,P.f) for p in D*B]))
 end
+@testset "Orbit-average obstruction and its spectral assumption" begin
+    # These tests support the algebra in the implication-IBC theorem;
+    # they are not a mechanization of its universal mathematical proof.
+    for n in (2,4)
+        R=zeros(QQ,n,n)
+        for i in 1:n; R[i,isodd(i) ? i+1 : i-1]=isodd(i) ? -1 : 1; end
+        orbit_sum=zeros(QQ,n,n)
+        for j in 0:3; orbit_sum+=R^j; end
+        @test orbit_sum==zeros(QQ,n,n)
+    end
+    R=QQ[0 -1 0;1 0 0;0 0 1]
+    orbit_sum=sum(R^j for j in 0:3)
+    @test det(R-I)==0
+    @test orbit_sum!=zeros(QQ,3,3)
+    @test orbit_sum[3,3]==4
+end

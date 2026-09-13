@@ -24,7 +24,7 @@
 \cortext[cor1]{Corresponding author.}
 \address[cub]{Department of Computer Science, University of Colorado Boulder, USA}
 \begin{abstract}
-Multiple-function safety certificates trade polynomial degree against the structure of the inequalities coupling their components. We characterize robust, globally scaled interpolation-inspired barrier certificates as anchored vector barrier certificates with weighted-path comparison matrices. The characterization specifies the direction of propagation, reciprocal weights, separation margins, and domain assumptions, and transports sum-of-squares witnesses without another optimization. To distinguish structural inclusion from genuine expressive power, we prove a finite-order obstruction: if a linear transition has finite order and no eigenvalue one, no globally scaled interpolation-inspired certificate with affine frames exists, regardless of the number of frames. For explicit two- and four-dimensional rotation systems, cyclic affine vector certificates nevertheless prove safety, while quadratic scalar certificates also exist. Thus the degree separation is strict but limited to the stated template classes. We implement polynomial synthesis in Julia and separate numerical candidate generation from exact-rational verification over invariant boxes. Reassessment of two polynomial examples identifies normalization and domain errors behind misleading feasibility comparisons. A source-matched external example, an explicitly labeled logistic-map adaptation, scalar baselines, and exact cyclic witnesses provide complementary reproducibility and structural tests. The resulting framework identifies both when certificate representations are interchangeable and when path structure genuinely increases the required degree.
+Multiple-function safety certificates trade polynomial degree against the structure of the inequalities coupling their components. We characterize robust, globally scaled interpolation-inspired barrier certificates as anchored vector barrier certificates with weighted-path comparison matrices. The characterization specifies the direction of propagation, reciprocal weights, separation margins, and domain assumptions, and transports sum-of-squares witnesses without another optimization. To distinguish structural inclusion from genuine expressive power, we prove a finite-order obstruction: if a linear transition has finite order and no eigenvalue one, no implication-style interpolation-inspired certificate with affine frames exists, regardless of the number of frames. For explicit two- and four-dimensional rotation systems, cyclic affine vector certificates nevertheless prove safety, while quadratic scalar certificates also exist. The strict degree separation therefore holds before the scaled SOS relaxation is imposed. We implement polynomial synthesis in Julia and separate numerical candidate generation from exact-rational verification over invariant boxes. Reassessment of two polynomial examples identifies normalization and domain errors behind misleading feasibility comparisons. A source-matched external example, an explicitly labeled logistic-map adaptation, scalar baselines, and exact cyclic witnesses provide complementary reproducibility and structural tests. The resulting framework identifies both when certificate representations are interchangeable and when path structure genuinely increases the required degree.
 \end{abstract}
 \begin{keyword}
 Safety verification \sep Vector barrier certificates \sep Interpolation-inspired certificates \sep Sum of squares \sep Exact verification
@@ -38,9 +38,9 @@ Vector barrier certificates (VBCs) organize several scalar functions through an 
 
 The purpose of a relation between these constructions is operational rather than terminological. If two searches represent the same inequalities, an existing certificate and its algebraic proof should transfer between them without being rediscovered. Conversely, an apparent superiority of a general comparison matrix is meaningful only if it survives a matched template comparison. The mere fact that a matrix has additional nonzero entries proves neither a degree advantage nor the nonexistence of a different sparse comparison for the same functions.
 
-We address both questions. First, we give an exact, bidirectional identification of globally scaled IBCs with a precisely anchored path-matrix VBC subclass. The identification includes the polynomial residuals used in synthesis, making it possible to transport SOS witnesses. Second, we prove a genuine fixed-degree separation. A finite-order transition forces any sign-changing scalar comparison certificate to have unit gain and to be invariant. When the transition is linear and has no eigenvalue one, an invariant affine function is constant. This obstructs the terminal frame of every affine scaled IBC, independently of the frame count. Cyclic affine VBCs escape the obstruction by permuting their components rather than requiring a single terminal function to be invariant.
+We address both questions. First, we give an exact, bidirectional identification of globally scaled IBCs with a precisely anchored path-matrix VBC subclass. The identification includes the polynomial residuals used in synthesis, making it possible to transport SOS witnesses. Second, we prove a genuine fixed-degree separation. For a finite-order linear transition without eigenvalue one, every orbit has zero state average. An affine terminal frame has the same average on every orbit, and cannot have an invariant nonpositive sublevel set separating two nonempty orbit classes. This excludes affine implication-style IBCs independently of frame count and scaling choices. Cyclic affine VBCs escape the obstruction by permuting several components.
 
-Graph-structured certificates are not new in themselves. In particular, path-complete barrier functions use graphs to express safety conditions for switched systems, and their completeness and ordering have been investigated by Anand et al.~\cite{anand}. Our result concerns an autonomous transition, anchored separation, and the globally scaled IBC chain with a terminal scalar loop. It is not a general ordering theorem for path-complete graphs. Likewise, numerical-to-rational SOS verification has established precedents~\cite{peyrl}; our contribution is its integration with exact certificate transport and a reproducible diagnosis of these specific representations.
+Graph-structured certificates are not new in themselves. In particular, path-complete barrier functions use graphs to express safety conditions for switched systems, and their completeness and ordering have been investigated by Anand et al.~\cite{anand}. Our result concerns an autonomous transition and the terminal invariant sublevel set required by an IBC. The exact representation theorem additionally assumes anchored, robust, globally scaled conditions. It is not a general ordering theorem for path-complete graphs. Likewise, numerical-to-rational SOS verification has established precedents~\cite{peyrl}; our contribution is its integration with exact certificate transport and a reproducible diagnosis of these specific representations.
 
 The computational part has three purposes: to test the algebraic equivalence using transported proofs, to distinguish historical search failures from certificate nonexistence, and to expose the cost of path structure through an analytical benchmark with an exact impossibility proof. We use a source-matched BarrierBench entry~\cite{barrierbench,data}, a clearly identified autonomous adaptation of a logistic-map entry, and scalar baselines. The external examples test reproducibility, not superiority. The constructed finite-order examples establish the degree claim without relying on an infeasible SDP return.
 
@@ -99,6 +99,20 @@ A robust global scaled backward IBC satisfies
 \end{subequations}
 \end{definition}
 These inequalities imply their corresponding nonpositivity implications. The converse need not hold. In particular, an implication restricted to $X\setminus X_u$ cannot be silently substituted for an all-$X$ comparison inequality. Requiring a uniform positive margin is also an explicit strengthening of weak separation. Neither strengthening is asserted to be without loss of generality.
+
+\begin{definition}[Implication IBCs]\label{def:imp}
+An implication-style forward IBC has $b_1\le0$ on $X_0$ and $b_i>0$ on $X_u$ for every $i$. Its propagation conditions are
+\[
+ b_i(x)\le0\ \Longrightarrow\ b_{s(i)}(f(x))\le0,
+ \qquad x\in X\setminus X_u.
+\]
+An implication-style backward IBC has $b_1\le0$ on $X_u$, $b_i>0$ on $X_0$ for every $i$, and
+\[
+ b_i(f(x))\le0\ \Longrightarrow\ b_{s(i)}(x)\le0,
+ \qquad x\in X.
+\]
+Here $s(i)=\min\{i+1,m\}$ includes the terminal self-loop. No uniform separation margin or global scaled inequality is required.
+\end{definition}
 
 \section{Exact representation and proof transport}
 For $a_i>0$, define the weighted-path matrix $P(a)$ by
@@ -176,25 +190,24 @@ then $a=1$ and $p\circ f=p$ on $X$.
 In the first case, iteration yields $p\le a^r p$. A positive value forces $a\ge1$, while a negative value forces $a\le1$. In the second case, iteration yields the same inequality $p\le a^r p$, with the same conclusion. When $a=1$, every finite orbit is a cycle of one-sided inequalities ending at its starting value. All inequalities on the cycle must therefore be equalities.
 \end{proof}
 
-\begin{theorem}[No affine global scaled IBC]\label{thm:obstruction}
-Let $f(x)=Rx$, where $R^r=I$ and $1$ is not an eigenvalue of $R$. Let $X$ have nonempty interior and satisfy $R(X)=X$. For any nonempty $X_0,X_u\subset X$, no robust global scaled forward or backward IBC consisting entirely of affine frames exists, for any finite frame count.
+\begin{theorem}[No affine implication IBC]\label{thm:obstruction}
+Let $f(x)=Rx$, where $R^r=I$ and $1$ is not an eigenvalue of $R$. Let $R(X)=X$ and let $X_0,X_u\subset X$ be nonempty. No forward or backward implication IBC with affine frames exists, for any finite frame count. Consequently no robust global scaled affine IBC exists either.
 \end{theorem}
 \begin{proof}
-For a forward IBC, start at $x_0\in X_0$. The chain inequalities imply
-\[
- b_m(R^{m-1}x_0)\le
- -\delta_0\Big/\prod_{i=1}^{m-1}\lambda_i<0.
-\]
-The terminal frame is positive on $X_u$, so it takes both signs. Its terminal inequality and Lemma~\ref{lem:finite} imply $b_m\circ R=b_m$.
+In a forward implication IBC, propagating from $x_0\in X_0$ gives $b_m(R^{m-1}x_0)\le0$. At each preceding step the active frame is nonpositive, hence the state is not unsafe and the next implication applies. Write $p=b_m$ and $S=\{x\in X:p(x)\le0\}$. Then $S$ is nonempty and disjoint from $X_u$. The terminal implication gives $RS\subseteq S$. Since $R^r=I$, this implies $RS=S$.
 
-For a backward IBC, choose $u\in X_u$. Since $R$ is bijective on $X$, iterating the chain at $R^{-1}u,\ldots,R^{-(m-1)}u$ gives
-\[
- b_m(R^{-(m-1)}u)\le
- -\delta_u\prod_{i=1}^{m-1}\lambda_i<0.
-\]
-The same frame is positive on $X_0$. Its terminal inequality again implies invariance.
+In a backward implication IBC, propagating from $u\in X_u$ at successive preimages gives $b_m(R^{-(m-1)}u)\le0$. Now $S$ is nonempty and disjoint from $X_0$, and the terminal implication gives $R^{-1}S\subseteq S$. Finite order again implies $RS=S$.
 
-In either case write $b_m(x)=c^\top x+d$. Invariance on a set with nonempty interior implies $c^\top(R-I)=0$. The assumption on the spectrum gives $c=0$. Thus $b_m$ is constant, contradicting its two signs. Empty products cover $m=1$.
+In both cases, one orbit lies entirely in $S$, where $p\le0$, and another lies entirely in $X\setminus S$, where $p>0$. On the other hand,
+\[
+ (I-R)\sum_{j=0}^{r-1}R^j=I-R^r=0,
+ \qquad \sum_{j=0}^{r-1}R^j=0,
+\]
+where the second equality uses invertibility of $I-R$. For the affine function $p(x)=c^\top x+d$, every orbit therefore has the same average:
+\[
+ \frac1r\sum_{j=0}^{r-1}p(R^jx)=d.
+\]
+The first orbit forces $d\le0$ and the second forces $d>0$, a contradiction. This argument does not require $X$ to have interior or the nonpositive value to be strictly negative. Global scaled certificates imply the corresponding sign implications, establishing the last assertion.
 \end{proof}
 
 \begin{corollary}[Tight affine--quadratic separation]\label{cor:rotation}
@@ -206,7 +219,7 @@ Set $X=[-2,2]^n$. In $X_0$, every odd coordinate lies in $[0.9,1.1]$ and every e
 \[
  X_u=[1.5,1.7]\times[-0.1,0.1]^{n-1}.
 \]
-An anchored forward VBC with $2n$ affine components exists. No global scaled IBC with affine frames exists, regardless of frame count. A quadratic scalar certificate, hence repeated quadratic IBC frames in both directions, does exist.
+An anchored forward VBC with $2n$ affine components exists. No implication IBC with affine frames exists, regardless of frame count. A quadratic scalar certificate, hence repeated quadratic IBC frames in both directions, does exist.
 \end{corollary}
 \begin{proof}
 Take
@@ -214,9 +227,9 @@ Take
  \B(x)=(x_1-c,\ldots,x_n-c,-x_1-c,\ldots,-x_n-c)^\top,
  \quad c=6/5.
 \end{equation}
-The rotation permutes these components, so $\B(Rx)=A\B(x)$ for a permutation matrix $A\ge0$. On $X_0$ all components are at most $-1/10$, and on $X_u$ the first is at least $3/10$. This proves the VBC claim. Since $R^4=I$ and $1\notin\operatorname{spec}(R)$, Theorem~\ref{thm:obstruction} excludes every affine scaled IBC.
+The rotation permutes these components, so $\B(Rx)=A\B(x)$ for a permutation matrix $A\ge0$. On $X_0$ all components are at most $-1/10$, and on $X_u$ the first is at least $3/10$. This proves the VBC claim. Since $R^4=I$ and $1\notin\operatorname{spec}(R)$, Theorem~\ref{thm:obstruction} excludes every affine implication IBC.
 
-Finally $g=x_1^2+x_2^2-3/2$ is invariant. On $X_0$, $g\le1.22-1.5=-0.28$, while on $X_u$, $g\ge2.25-1.5=0.75$. It is a quadratic scalar forward certificate. Repeating $g$ with unit scales gives a forward IBC; repeating $-g$ gives a backward IBC. Constant certificate vectors cannot separate the two nonempty sets, so the vector degree one and the scaled-IBC degree two are both minimal.
+Finally $g=x_1^2+x_2^2-3/2$ is invariant. On $X_0$, $g\le1.22-1.5=-0.28$, while on $X_u$, $g\ge2.25-1.5=0.75$. It is a quadratic scalar forward certificate. Repeating $g$ with unit scales gives a forward IBC; repeating $-g$ gives a backward IBC. Constant certificate vectors cannot separate the two nonempty sets, so the vector degree one and the IBC degree two are both minimal, for both implication and global scaled frames.
 \end{proof}
 
 \begin{figure}[t]
@@ -236,10 +249,10 @@ Finally $g=x_1^2+x_2^2-3/2$ is invariant. On $X_0$, $g\le1.22-1.5=-0.28$, while 
 \node at (1.0,-.32) {$X_0$};\node at (1.6,-.32) {$X_u$};
 \node[anchor=west] at (-1.25,-1.43) {$\{\B\le0\}=[-6/5,6/5]^2$};
 \end{tikzpicture}
-\caption{Exact two-dimensional structural example. The four initial-box images form a periodic orbit of sets. Cyclic comparison preserves four affine facets, whereas a terminal affine frame would have to be constant. Arrows illustrate the discrete rotation, not continuous trajectories.}\label{fig:rotation}
+\caption{Exact two-dimensional structural example. The four initial-box images form a periodic orbit of sets. Cyclic comparison preserves four affine facets, whereas a terminal affine frame cannot separate the orbit classes. Arrows illustrate the discrete rotation, not continuous trajectories.}\label{fig:rotation}
 \end{figure}
 
-This is a separation of globally scaled template classes, not a claim against unrestricted implication IBCs or arbitrary scalar functions. The four-dimensional example is a block extension testing implementation generality, not a claim of high-dimensional computational scalability. The example is deliberately constructed; it is not represented as an external benchmark.
+This is a polynomial-degree separation for both implication and global scaled IBCs, not a nonexistence claim for nonlinear frames or arbitrary scalar functions. The four-dimensional example is a block extension testing implementation generality, not a claim of high-dimensional computational scalability. The example is deliberately constructed; it is not represented as an external benchmark.
 
 \begin{proposition}[Why a positive propagation reserve can be invalid]\label{prop:reserve}
 For the cyclic construction above, there is no finite-valued $\B$ satisfying $\B(Rx)\le A\B(x)-\eta\one$ on $X$ with $\eta>0$ and its permutation matrix $A$.
@@ -313,18 +326,18 @@ with $X_0=[-0.12,0.12]^2$ and $X_u=[0.85,1.10]\times[-0.10,0.10]$. The original 
 The historical grid-based implementation and result files are retained as labeled legacy material. They are not represented as earlier SOS proofs or used in the new comparison table.
 
 \subsection{External provenance and nonlinear adaptation}
-BarrierBench is a recent collection covering both controlled and autonomous, continuous- and discrete-time problems~\cite{barrierbench,data}. It is a useful provenance source, not evidence that every entry is challenging or that the collection is already a long-established community standard. We reproduce the autonomous entry whose transition simplifies exactly to
+BarrierBench is a recent collection covering both controlled and autonomous, continuous- and discrete-time problems~\cite{barrierbench,data}. We reproduce the autonomous entry whose transition simplifies exactly to
 \[
  f(x)=(-x_2/100,\ x_1/100),
 \]
-with $X_0=[0.1,0.4]\times[0.1,0.55]$ and $X_u=[0.45,0.5]\times[0.6,1]$. We add the invariant verification box $[-1.2,1.2]^2$, without changing the transition or either safety set. It is a contraction and should not be used to claim a VBC advantage. Its initial states leave the initial box after one step.
+with $X_0=[0.1,0.4]\times[0.1,0.55]$ and $X_u=[0.45,0.5]\times[0.6,1]$. We add the invariant verification box $[-1.2,1.2]^2$, without changing the transition or either safety set. It is a contraction; its initial states leave the initial box after one step.
 
 The second external-data-derived task uses
 \[
  f_1(x)=\tfrac{16}{5}x_1(1-x_1),\qquad
  f_2(x)=\tfrac{14}{5}x_2(1-x_2),
 \]
-with $X=[0,1]^2$, $X_0=[0.1,0.3]\times[0.2,0.4]$, and $X_u=[0.8,1]^2$. The logistic family is classical~\cite{may}. The cited dataset entry is controlled; here both inputs are fixed to zero. We therefore label this case \emph{Logistic-adapted}, not an exact reproduction of the original controller-synthesis problem, and do not import the dataset's supplied controller or barrier as evidence. The map has image in $[0,0.8]\times[0,0.7]$, proving domain invariance. This is an additional nonlinear verification test, not a claimed chaotic benchmark at the chosen parameters.
+with $X=[0,1]^2$, $X_0=[0.1,0.3]\times[0.2,0.4]$, and $X_u=[0.8,1]^2$. The logistic family is classical~\cite{may}. The cited dataset entry is controlled; here both inputs are fixed to zero. We therefore label this case \emph{Logistic-adapted}, not an exact reproduction of the original controller-synthesis problem, and do not import the dataset's supplied controller or barrier as evidence. The map has image in $[0,0.8]\times[0,0.7]$, proving domain invariance. This is a nonlinear verification test, not a claimed chaotic benchmark.
 
 Widely used continuous-time and hybrid reachability collections such as ARCH-COMP~\cite{arch} serve a different semantic setting. Replacing an ODE with an Euler step does not preserve its safety problem without an approximation-error argument. We therefore do not report results on such a surrogate as verification of the original ODE benchmark.
 
@@ -345,10 +358,10 @@ Logistic-adapted & V & V & V & V & V\\
 
 For each accepted IBC solution, the existing Gram witnesses are transported to the corresponding VBC and replayed without re-optimization. These checks test the claimed representation directly. They do not establish equality of independently optimized margins under arbitrary rescaling. All sixteen multi-function searches and all four scalar forward baselines passed exact-rational replay. Consequently, these four examples do not establish a multiple-function advantage. The controlled legacy-normalization ablation returned no certified candidate, a solver outcome rather than an exact nonexistence theorem.
 
-The strongest negative result in the paper is consequently analytical: the rotation systems have no affine global scaled IBC for any finite frame count. Their positive cyclic witnesses have exact zero residual and are independently replayed. The four-dimensional instance extends the same construction rather than introducing a new physical application. We make no broad scalability claim from these dimensions and no performance ranking against external tools with different semantics, controllers, or acceptance policies.
+The rotation systems have no affine implication IBC for any finite frame count, while their cyclic witnesses replay with zero residual. The four-dimensional block extension does not establish scalability, and no ranking against tools with different semantics is inferred.
 
 \section{Conclusion}
-Global scaled IBCs have an exact anchored path-matrix interpretation, provided direction, reciprocal weights, strict separation, and propagation domains are aligned. This interpretation transports both certificates and their SOS proofs. General matrix support is not itself evidence of expressive power; a finite-order obstruction instead proves a strict affine--quadratic separation between cyclic VBCs and globally scaled IBCs of arbitrary finite length. Periodicity also shows why a strictly positive propagation reserve can create artificial infeasibility. A Julia implementation separates numerical synthesis from exact-rational replay and makes normalization, domain repair, provenance, and scalar baselines explicit. Future comparisons should retain this distinction between representation, template nonexistence, relaxation failure, and numerical uncertainty.
+Global scaled IBCs have an exact anchored path-matrix interpretation, provided direction, reciprocal weights, strict separation, and propagation domains are aligned. This interpretation transports both certificates and their SOS proofs. General matrix support is not itself evidence of expressive power; a finite-order obstruction instead proves a strict affine--quadratic separation between cyclic VBCs and implication-style IBCs of arbitrary finite length. Periodicity also shows why a strictly positive propagation reserve can create artificial infeasibility. A Julia implementation separates numerical synthesis from exact-rational replay and makes normalization, domain repair, provenance, and scalar baselines explicit. These results distinguish representation, template nonexistence, and numerical uncertainty.
 
 \section*{Reproducibility and data availability}
 The accompanying artifact contains Julia source, a resolved package manifest, benchmark definitions, proof files, replay scripts, tests, and the recorded results. Numerical data are bound to the tested source revision and checksums in the evidence directory. A private development repository is not presumed accessible to reviewers; the same source and evidence should accompany the submission as an artifact. No benchmark-data or code license is inferred beyond the cited source terms.
