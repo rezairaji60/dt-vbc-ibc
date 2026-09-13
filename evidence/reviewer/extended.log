@@ -1,0 +1,8 @@
+Test Summary:                                 | Pass  Total  Time
+Literature provenance and exact domain guards |   17     17  5.8s
+Test Summary:                   | Pass  Total  Time
+Finite-order non-path witnesses |   14     14  8.5s
+Test Summary:                                          | Pass  Total  Time
+Canonical path identities and reject non-path matrices |    4      4  1.6s
+Test Summary:                                         | Pass  Total  Time
+Orbit-average obstruction and its spectral assumption |    5      5  1.4s

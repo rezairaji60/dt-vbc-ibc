@@ -1,0 +1,4 @@
+Scaled IBCs admit exact anchored path-matrix representations.
+SOS witnesses transfer between equivalent certificates without re-solving.
+Finite-order dynamics separate affine cyclic VBCs from implication IBCs.
+Exact-rational replay distinguishes proof from numerical feasibility.

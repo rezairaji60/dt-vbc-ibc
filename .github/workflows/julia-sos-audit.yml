@@ -1,0 +1,120 @@
+name: Julia SOS reviewer audit
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+concurrency:
+  group: julia-sos-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  audit:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    env:
+      JULIA_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '1'
+      AUDIT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.10.10'
+      - uses: julia-actions/cache@v2
+      - name: Instantiate environment
+        run: julia --project=julia_sos -e 'using Pkg; Pkg.instantiate(); Pkg.precompile(); Pkg.status()'
+      - name: Exact proof tests and SOS integration
+        shell: bash
+        run: |
+          mkdir -p julia_sos/results
+          export GITHUB_SHA="$(git rev-parse HEAD)"
+          set -o pipefail
+          julia --project=julia_sos julia_sos/test/runtests.jl 2>&1 | tee julia_sos/results/tests.log
+          julia --project=julia_sos julia_sos/test/extended.jl 2>&1 | tee julia_sos/results/extended.log
+      - name: Reviewer experiments
+        shell: bash
+        run: |
+          export GITHUB_SHA="$(git rev-parse HEAD)"
+          set -o pipefail
+          julia --project=julia_sos julia_sos/experiments/run_reviewer.jl 2>&1 | tee julia_sos/results/audit.log
+          if [ -f evidence/reviewer/artifact_index.json ]; then
+            julia --project=julia_sos julia_sos/experiments/replay_all.jl
+          fi
+      - name: Build Elsevier manuscript
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends texlive-latex-extra texlive-fonts-recommended texlive-publishers texlive-science
+          cd paper
+          pdflatex -interaction=nonstopmode -halt-on-error main.tex > build.log
+          bibtex main >> build.log
+          pdflatex -interaction=nonstopmode -halt-on-error main.tex >> build.log
+          pdflatex -interaction=nonstopmode -halt-on-error main.tex >> build.log
+          if grep -q 'undefined citations\|undefined references' main.log; then exit 1; fi
+      - name: Archive successful reviewer evidence once
+        if: success() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        shell: bash
+        run: |
+          if [ -f evidence/reviewer/artifact_index.json ]; then exit 0; fi
+          remote_head="$(git ls-remote origin "refs/heads/$HEAD_BRANCH" | cut -f1)"
+          test "$remote_head" = "$EXPECTED_HEAD"
+          julia --project=julia_sos julia_sos/experiments/archive_evidence.jl
+          julia --project=julia_sos julia_sos/experiments/replay_all.jl
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f evidence/reviewer julia_sos/Manifest.toml paper/main.pdf paper/main.bbl
+          git commit -m 'Archive tested reviewer proofs, pinned environment and manuscript [skip ci]'
+          git push origin "HEAD:$HEAD_BRANCH"
+      - name: Preserve evidence artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reviewer-evidence-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            julia_sos/Project.toml
+            julia_sos/Manifest.toml
+            julia_sos/results/
+            evidence/reviewer/
+            paper/
+          retention-days: 90
+      - name: Record concise execution evidence
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const names = ['tests.log','extended.log','reviewer_summary.json'];
+            let body = '## Reviewer run\nSource: `' + context.payload.pull_request.head.sha + '`\nRun: ' + context.runId + '\n';
+            for (const n of names) {
+              const p = 'julia_sos/results/' + n;
+              if (fs.existsSync(p)) body += '\n### ' + n + '\n```text\n' + fs.readFileSync(p,'utf8').slice(-16000).replace(/```/g,'~~~') + '\n```\n';
+            }
+            if (!fs.existsSync('julia_sos/results/reviewer_summary.json') && fs.existsSync('julia_sos/results/audit.log')) body += '\n```text\n' + fs.readFileSync('julia_sos/results/audit.log','utf8').slice(-10000) + '\n```';
+            await github.rest.issues.createComment({...context.repo, issue_number:context.issue.number, body});
+      - name: Remove only the reviewed merged work branch
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Explicitly authorized cleanup for this research PR, not a generic
+            // branch deletion policy. Never delete a ref moved after the merge.
+            const p = (await github.rest.pulls.get({...context.repo, pull_number:1})).data;
+            const branch = 'fix/scl-julia-sos-audit';
+            if (!p.merged || p.head.ref !== branch || p.base.ref !== 'main' || p.head.repo.full_name !== context.repo.owner + '/' + context.repo.repo) return;
+            try {
+              const r = (await github.rest.git.getRef({...context.repo, ref:'heads/' + branch})).data;
+              if (r.object.sha !== p.head.sha) throw new Error('Merged branch moved; refusing deletion.');
+              await github.rest.git.deleteRef({...context.repo, ref:'heads/' + branch});
+              core.notice('Deleted only merged branch ' + branch + ' after main passed.');
+            } catch (e) {
+              if (e.status === 404) core.notice('Merged branch already deleted.');
+              else throw e;
+            }
