@@ -1,0 +1,21 @@
+schema = "scl-reviewer-release-v1"
+release = "Majid review computational baseline 1"
+science_source_commit = "fd820218a04ed0621bbc8bd5a20d51b53a6cdae4"
+archive_index_sha256 = "bba014707d2252ec30bc24863204cc88fcd2ee5e96acec0d8c9ba24436224a29"
+indexed_files = 69
+proof_bundles = 36
+julia_version = "1.10.10"
+required_documentation = ["README.md", "julia_sos/README.md", "docs/REPOSITORY_FREEZE.md", "docs/EXECUTION_EVIDENCE.md", "docs/BENCHMARK_PROVENANCE.md", "docs/REVIEWER_RESOLUTION.md", "docs/WINDOWS_ARCHIVE_REPLAY.md", "paper/README.md", "paper/AUTHOR_CHECKLIST.md"]
+
+# Git blob IDs after canonical LF normalization, for cross-platform source checks.
+# These are unchanged computational inputs, NOT hashes of new numerical results.
+[science_blobs]
+"julia_sos/src/AuditSOS.jl" = "d20a14436b004da697eb57e5b5b7bb3574548449"
+"julia_sos/src/benchmarks.jl" = "44d5421604e173459615edb343e926389da40a1a"
+"julia_sos/src/exact.jl" = "309d25874e9169e0937abab80104302ec748c5d4"
+"julia_sos/src/obligations.jl" = "9c9f9f903a5b88d702bd2974e35b9d1cad91ef61"
+"julia_sos/src/problems.jl" = "8300d98dd160964855cd1f7fa321d8dcd31800b4"
+"julia_sos/src/structural.jl" = "b017ad353341b36aa8f3de870a4340197d2a3abc"
+"julia_sos/src/synthesis.jl" = "9141dad7bd7baab2ce55f889465b2456c48d6165"
+"julia_sos/Project.toml" = "571843f8f13fe735515a9add812a2d6b035006f8"
+"julia_sos/Manifest.toml" = "efea5cfce9defee35e283d6cec883780143c66b3"

@@ -1,43 +1,54 @@
-# Verified barrier certificates for discrete-time safety
+# Vector and interpolation-inspired barrier certificates
 
-Reviewer-facing implementation for **Beyond path-structured barrier certificates: exact embeddings, degree separation, and verified SOS synthesis**.
+Computational baseline for Majid and Vishnu's manuscript review. The proposed title is **Structural Relationships Between Vector and Interpolation-Inspired Barrier Certificates for Safety Verification**. Title and manuscript approval are author decisions; the computational freeze does not silently rewrite the paper.
 
-## Run everything
+## Reproduce the frozen results
 
-Install Julia 1.10.10, clone this repository, and run from its root:
-
-```sh
-julia --project=julia_sos julia_sos/run_all.jl
-```
-
-This instantiates the pinned environment, executes both test suites, and regenerates synthesis/replay results in `julia_sos/results/`. CSDP is the default solver; no commercial license is required. Numerical synthesis is Julia/JuMP/SumOfSquares. Solver statuses alone are not proofs.
-
-Verify archived certificates without solving another SDP:
+Use Julia **1.10.10** and Git. From the repository root, run:
 
 ```sh
-julia --project=julia_sos julia_sos/experiments/replay_all.jl
+julia --startup-file=no --project=julia_sos julia_sos/run_all.jl
 ```
 
-Replay checks SHA256 hashes, rebuilds obligations from exact benchmark definitions, checks rational Gram matrices and whole-box residual budgets, and requires invariant domains. `evidence/reviewer/` records the tested source revision and resolved environment. New computations do not overwrite it.
+The `julia` executable in that command must report version 1.10.10. With a standalone Windows installation, use its executable directly:
 
-## Scientific scope
+```powershell
+& "C:\path\to\julia-1.10.10\bin\julia.exe" --startup-file=no --project=julia_sos julia_sos/run_all.jl
+```
 
-The exact bidirectional representation theorem concerns robust, anchored, full-domain **globally scaled** IBCs. The stronger degree theorem concerns **implication-style** IBCs as well: for the finite-order rotation examples, no affine IBC of any finite length exists, whereas cyclic affine VBCs do. An orbit-average argument proves nonexistence; it is not inferred from SDP failures. Quadratic scalar and repeated-frame certificates exist, so the minimum degrees are exactly one versus two. Numerical regression tests support the identities; they are not proof-assistant mechanization.
+The command checks frozen inputs, runs the scientific and release tests, replays the committed archive, synthesizes all fixed cases, and independently replays every new proof. It succeeds only after printing `REVIEWER_RELEASE_VERIFIED`. A new run gets its own `julia_sos/results/run-*` directory; `LATEST_RUN.json` identifies the most recent completed run. The immutable archive is never overwritten. CSDP is the default SDP solver; no commercial solver license or repository secret is required.
 
-Four free-synthesis problems comprise S1, repaired S2, a source-matched BarrierBench contraction, and an explicitly adapted logistic map. Scalar baselines are reported honestly; all pass. Two exact finite-order structural witnesses supply the degree distinction, with zero propagation reserve. No general runtime or scalability superiority is claimed.
+To check the committed proofs without another SDP solve:
 
-## Contents
+```sh
+julia --startup-file=no --project=julia_sos julia_sos/experiments/replay_all.jl
+```
 
-- `julia_sos/src/`: synthesis, exact replay, versioned problems and transformations.
-- `julia_sos/test/`: correctness, provenance, transport, tamper rejection and orbit-average tests.
-- `julia_sos/experiments/run_reviewer.jl`: complete fixed reviewer suite.
-- `paper/main.tex`: Elsevier-format manuscript; `paper/README.md` explains compilation.
-- `docs/BENCHMARK_PROVENANCE.md`: literature and selection rationale.
-- `docs/REVIEWER_RESOLUTION.md`: concerns mapped to evidence.
-- `paper/AUTHOR_CHECKLIST.md`: author checks before submission.
+Success is `ARCHIVE_REPLAY_VERIFIED: 36 proof bundles; all indexed SHA256 digests checked.` An older Windows checkout with changed line endings may need the one-time, backup-preserving repair in [Windows archive replay](docs/WINDOWS_ARCHIVE_REPLAY.md). Do not update dependencies or regenerate expected hashes to suppress an error.
 
-## Legacy
+## Results and limits
 
-The original Python source, experiment and historical results remain for traceability. Despite their names, the active old method is finite-grid collocation, not a full-domain SOS proof. Its margins/infeasibility table are not current evidence. See `docs/SCL_SIMULATION_AUDIT.md` for the earlier diagnosis and `docs/IMPLICATION_OBSTRUCTION.md` for the strengthened theorem.
+The fixed table contains 16 degree-two multi-function cases, four degree-two scalar baselines, two exact analytical affine rotation witnesses, and one intentionally unsuccessful legacy-normalization ablation. Each positive certificate passes rational Gram-matrix and full-box residual verification with an established invariant domain. S2 uses the explicitly repaired domain. The logistic task is adapted, not a reproduction of a control-synthesis problem.
 
-The development repository remains private. Provide the full source/evidence artifact or reviewer access with submission; a private URL alone is insufficient. No visibility or licensing change is implied, and journal acceptance cannot be guaranteed by passing tests.
+The representation theorem concerns robust anchored full-domain globally scaled IBCs. The separate finite-order degree argument concerns implication-style IBCs. The programs check concrete witnesses and regression identities, not the general theorem in a proof assistant. The four numerical problems also admit scalar certificates; they do not establish general vector superiority, optimized margins, or runtime/scalability rankings.
+
+## Reviewer navigation
+
+- [Freeze scope and paper handoff](docs/REPOSITORY_FREEZE.md)
+- [Execution evidence](docs/EXECUTION_EVIDENCE.md)
+- [Julia commands, outputs and interpretation](julia_sos/README.md)
+- [Benchmark provenance and prior-work limits](docs/BENCHMARK_PROVENANCE.md)
+- [Reviewer concern-to-evidence map](docs/REVIEWER_RESOLUTION.md)
+- [Manuscript compilation](paper/README.md) and [author checks](paper/AUTHOR_CHECKLIST.md)
+
+The original Python code and results are historical collocation, not current SOS evidence. Historical diagnostics are under `docs/history/`. No legacy values are substituted into the new table.
+
+## Export for a reviewer without repository access
+
+```sh
+git archive --format=zip --output=../SCL_reviewer_source.zip HEAD README.md .gitattributes SOURCE_REVISION.txt docs julia_sos evidence paper
+```
+
+Extract the ZIP and run the same command from its root. Git is used for isolated portability fixtures, not to access an account. `SOURCE_REVISION.txt` records the exported commit. The ZIP contains source, pinned environment, proofs and documentation; a results-only Actions artifact does not replace it. CI checks an exported copy as well as the Git checkout.
+
+The repository remains private. Send the source ZIP or arrange authorized access for external reviewers. This freeze is for coauthor review, not a journal submission, licensing grant, independent novelty approval, or acceptance guarantee.
