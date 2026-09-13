@@ -1,51 +1,69 @@
-# Julia reviewer implementation
+# Julia implementation for the duality/complementarity paper
 
-The current implementation is on `main`; no deleted development branch is required. Scientific inputs and the original proof archive are identified in `../docs/REVIEWER_RELEASE.toml`.
+Fixed paper title:
+
+**Duality and Complementarity of Vector and Interpolation-Inspired Barrier Certificates for Safety Verification: Toward Reduced Conservatism and Complexity**
+
+The implementation deliberately separates numerical SOS evidence from analytical nonexistence/degree arguments.
 
 ## Supported reproduction
 
-Use Julia 1.10.10 and Git. Run from the repository root:
+Use Julia 1.10.10 and Git. From the repository root:
 
 ```sh
 julia --startup-file=no --project=julia_sos julia_sos/run_all.jl
 ```
 
-A standalone Julia executable is equally valid; Juliaup registration is optional. Do not use a different default Julia version and resolve/update the pinned Manifest to silence a warning. The first run downloads dependencies and precompiles them; later runs reuse the installed environment. Tests create temporary local Git fixtures without credentials or network access.
+A standalone Julia 1.10.10 executable is valid; Juliaup registration is optional. Do not update or re-resolve the pinned environment merely to suppress a version warning.
 
-The single command performs all stages: input fingerprint/hash checks; scientific tests; Windows-style checkout/repair tests; result-contract negative tests; original archive replay; fixed numerical experiments; exact replay of all freshly generated proofs; final input checks. Any failed stage exits nonzero. `REVIEWER_RELEASE_VERIFIED` is printed only after every stage passes.
+The single command checks source/evidence fingerprints, scientific tests, Windows checkout/repair tests, release-contract negative tests, the immutable SOS archive, all fixed numerical experiments, the deterministic complementarity report, exact replay of every fresh globally scaled/VBC proof, and exact replay of the separate affine implication-IBC bundle. `REVIEWER_RELEASE_VERIFIED` appears only after every stage passes.
 
-Outputs go to a fresh `julia_sos/results/run-*` directory. `results/LATEST_RUN.json` points to the latest completed run, so an interrupted attempt cannot masquerade as a successful one. Previous outputs and `evidence/reviewer/` are not overwritten. Use the `reviewer_summary.json` in the printed directory, not an old `results/summary.json` from an earlier release.
+Outputs use a fresh `julia_sos/results/run-*` directory. The immutable `evidence/reviewer/` archive and the committed `evidence/complementarity/` analytical report are never overwritten.
+
+## Evidence layers
+
+### 1. Scaled/path structural duality
+
+`src/obligations.jl`, `src/exact.jl`, and the transport tests implement the robust anchored full-domain globally scaled subclass. An IBC proof is sign/scaling-transformed into the corresponding path-structured VBC proof and replayed without another solve. Degree is preserved.
+
+### 2. VBC-side complementarity
+
+`Rotation2` and `Rotation4` have exact affine cyclic VBC witnesses. `rotation_degree_report` verifies the finite-order/spectral hypotheses used by the orbit-average theorem and verifies the invariant quadratic `x1^2+x2^2-3/2` that supplies a degree-two IBC. The code checks the concrete hypotheses/witnesses; the universal theorem remains mathematical text to be independently reviewed.
+
+### 3. IBC-side complementarity
+
+`ImplicationGap1D` uses `x+ = x(x+1)/2` on `[-1,1]`. `exact_implication_gap` verifies:
+
+- an affine implication-style IBC with frame `b=x`, an exact conditional SOS identity, and an independently replayed implication-proof bundle,
+- the exact convex-combination data used by the theorem excluding affine constant-comparison VBCs of any finite component count on the fixed domain,
+- a degree-four scalar global VBC recovery witness.
+
+The affine nonexistence claim is theorem-based, not a solver return. The quartic witness is an upper bound; degree four is not claimed minimal. The implication verifier checks a fixed certificate and fixed SOS multipliers; joint search over an unknown frame and unknown state-dependent multiplier would be bilinear and is not labeled as a convex SDP.
+
+### 4. Complexity accounting
+
+`complexity_profile` reports dense monomial counts and degree-matched Gram dimensions. It is transparent combinatorial sizing, not a runtime predictor. Component count, multiplier degrees, sparsity, conditioning and search strategy remain important.
+
+## Numerical inventory
+
+The historical fixed numerical table remains 23 rows: 16 degree-two multi-function exact positives, four degree-two scalar exact positives, two exact affine cyclic VBC witnesses, and one intentional normalization negative. Eight numerical IBC proof transports are replayed without resynthesis.
+
+The generated `complementarity_report.json` is **not** another solver-result row. It is separately validated analytical evidence. `ImplicationGap1D_forward_implication_ibc_analytical.json` is a separate exact proof bundle for the affine implication witness.
 
 ## Independent replay
+
+Original SOS archive only:
 
 ```sh
 julia --startup-file=no --project=julia_sos julia_sos/experiments/replay_all.jl
 ```
 
-This checks all 69 indexed raw-byte hashes and mathematically replays 36 committed proof bundles. It does not run synthesis. A separate release preflight also checks the archive index fingerprint and nine frozen scientific source/environment files:
+Release/evidence preflight:
 
 ```sh
 julia --startup-file=no --project=julia_sos julia_sos/experiments/release_check.jl
 ```
 
-For a single newly generated proof:
+An old Windows checkout with archive line-ending changes should follow `../docs/WINDOWS_ARCHIVE_REPLAY.md`; expected hashes must never be regenerated to hide a mismatch.
 
-```sh
-julia --startup-file=no --project=julia_sos julia_sos/experiments/replay.jl PATH_TO_CERTIFICATE.json
-```
-
-For an old Windows checkout that fails a digest check, follow `../docs/WINDOWS_ARCHIVE_REPLAY.md`. The repair is explicit, accepts only CRLF expansion, validates all files before writing, and backs up originals. It never regenerates the index or bypasses mathematics. Fresh Git checkouts and the reviewer ZIP preserve archived bytes.
-
-## Mathematical implementation
-
-`src/obligations.jl` defines robust anchored separation and full-domain propagation. `src/synthesis.jl` constructs explicit PSD Gram matrices and polynomial coefficient identities with fixed comparison parameters. `src/exact.jl` verifies rational PSD, bounds full-box polynomial residuals, constructs analytical S1 witnesses and transports complete IBC proofs. `src/problems.jl` and `src/benchmarks.jl` bind exact nominal benchmark data and domain proofs. `src/structural.jl` provides the analytical cyclic examples and scaling identities.
-
-The default solver is CSDP. Alternate solvers are not part of this frozen result set. `EXACT_RATIONAL_VERIFIED` means successful checks by this exact-arithmetic program, not proof-assistant mechanization. `NO_CERTIFIED_CANDIDATE` and `UNVERIFIED_CANDIDATE` never mean general nonexistence. The original S2 domain is deliberately `NOT_INVARIANT`; the revised problem is explicitly named `S2_repaired`.
-
-## Fixed experiment inventory
-
-S1, S2_repaired, BB_rotation and Logistic_adapted each have four three-function degree-two searches and one scalar forward baseline. Rotation2 and Rotation4 are separate analytical degree-one cyclic witnesses, not optimizer successes. The S1 legacy-positive-trace ablation is an intentional negative. Expect 23 identified rows: 22 exact positives plus that negative. Eight numerical IBC transports are independently replayed without another SDP solve.
-
-The lower-level `run_audit.jl` and `run_reviewer.jl` scripts are diagnostic entry points, not the complete release check. `archive_evidence.jl` is the retained historical archive creator; it refuses an existing archive and is not needed for reproduction. CI no longer writes new evidence into the frozen archive.
-
-See `../docs/REPOSITORY_FREEZE.md` for the boundary between this completed computational baseline and author review of the paper.
+See `../docs/COMPLEMENTARITY.md` for the scientific interpretation and `../docs/REPOSITORY_FREEZE.md` for the implementation/paper boundary.

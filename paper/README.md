@@ -1,12 +1,20 @@
-# SCL manuscript
+# SCL manuscript handoff
 
-Open `main.tex` in Overleaf. Standard elsarticle, elsarticle-num, TikZ and BibTeX are used. The figure is specified directly from the mathematical example in the source.
+Fixed paper title:
 
-```sh
-pdflatex -interaction=nonstopmode -halt-on-error main.tex
-bibtex main
-pdflatex -interaction=nonstopmode -halt-on-error main.tex
-pdflatex -interaction=nonstopmode -halt-on-error main.tex
-```
+**Duality and Complementarity of Vector and Interpolation-Inspired Barrier Certificates for Safety Verification: Toward Reduced Conservatism and Complexity**
 
-`main.bbl` is generated convenience output; `references.bib` is authoritative. The table reports exact-replay results, not historical collocation values. See `AUTHOR_CHECKLIST.md` for required author decisions before submission.
+The computational repository is organized around this story, but the article body is intentionally the next editing phase. `main.tex` remains the pre-extension manuscript draft until that paper pass; its current title/body must not be treated as the final coauthor-review version.
+
+The manuscript revision must cleanly separate:
+
+1. degree-preserving structural duality for the aligned globally scaled path subclass;
+2. the rotation-side degree separation favoring cyclic VBC coupling;
+3. the ImplicationGap1D separation favoring implication-style IBC propagation; and
+4. complexity consequences stated as transparent optimization-size considerations rather than universal runtime claims.
+
+During the next paper pass, replace any legacy one-sided degree-reduction or proof-reuse framing with the duality/complementarity narrative in `../docs/COMPLEMENTARITY.md`. Do not alter the frozen computational evidence merely to match prose.
+
+Standard `elsarticle`, TikZ and BibTeX are used. See `AUTHOR_CHECKLIST.md` before sending the revised manuscript to Majid and Vishnu.
+
+Generated `main.pdf`/`main.bbl` files are build artifacts rather than canonical source. CI compiles the exact revision; the paper pass should regenerate them after the manuscript text is revised.

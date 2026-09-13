@@ -1,18 +1,20 @@
-schema = "scl-reviewer-release-v1"
-release = "Majid review computational baseline 1"
-science_source_commit = "fd820218a04ed0621bbc8bd5a20d51b53a6cdae4"
+schema = "scl-reviewer-release-v2"
+release = "Majid review duality-complementarity baseline"
+release_parent_commit = "5e04062839fe5a2308a8324db453b8a3441c1b66"
 archive_index_sha256 = "bba014707d2252ec30bc24863204cc88fcd2ee5e96acec0d8c9ba24436224a29"
 indexed_files = 69
 proof_bundles = 36
+complementarity_evidence_sha256 = "27d15b9d5866b4f61ac52f1859a3e9f57ca8f9f878793ef7e112d6bd4d0a2753"
 julia_version = "1.10.10"
-required_documentation = ["README.md", "julia_sos/README.md", "docs/REPOSITORY_FREEZE.md", "docs/EXECUTION_EVIDENCE.md", "docs/BENCHMARK_PROVENANCE.md", "docs/REVIEWER_RESOLUTION.md", "docs/WINDOWS_ARCHIVE_REPLAY.md", "paper/README.md", "paper/AUTHOR_CHECKLIST.md"]
+required_documentation = ["README.md", "julia_sos/README.md", "docs/COMPLEMENTARITY.md", "docs/REPOSITORY_FREEZE.md", "docs/EXECUTION_EVIDENCE.md", "docs/BENCHMARK_PROVENANCE.md", "docs/REVIEWER_RESOLUTION.md", "docs/IMPLICATION_OBSTRUCTION.md", "docs/WINDOWS_ARCHIVE_REPLAY.md", "paper/README.md", "paper/AUTHOR_CHECKLIST.md"]
 
 # Git blob IDs after canonical LF normalization, for cross-platform source checks.
-# These are unchanged computational inputs, NOT hashes of new numerical results.
 [science_blobs]
-"julia_sos/src/AuditSOS.jl" = "d20a14436b004da697eb57e5b5b7bb3574548449"
-"julia_sos/src/benchmarks.jl" = "44d5421604e173459615edb343e926389da40a1a"
+"julia_sos/src/AuditSOS.jl" = "1590bb926a19c524c8e9a7558807924078981606"
+"julia_sos/src/benchmarks.jl" = "5bea613c8e468dc27becafbeaf16dac1548633d2"
+"julia_sos/src/complementarity.jl" = "c36ec2eec4d6912cd07cca55011d2ba0f00ac218"
 "julia_sos/src/exact.jl" = "309d25874e9169e0937abab80104302ec748c5d4"
+"julia_sos/src/implication.jl" = "4e21197aa8a9ef729dfc1c792338939b1e4450d9"
 "julia_sos/src/obligations.jl" = "9c9f9f903a5b88d702bd2974e35b9d1cad91ef61"
 "julia_sos/src/problems.jl" = "8300d98dd160964855cd1f7fa321d8dcd31800b4"
 "julia_sos/src/structural.jl" = "b017ad353341b36aa8f3de870a4340197d2a3abc"

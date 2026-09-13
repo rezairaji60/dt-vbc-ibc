@@ -39,13 +39,28 @@ function run_extensions(results,metadata,out)
             "components"=>length(bundle["B"]),"status"=>bundle["verification"]["status"],
             "experiment"=>"analytical_structural_witness_not_free_SDP","propagation_reserve"=>0))
     end
+
+    # Analytical complementarity evidence is intentionally separate from the
+    # solver-result table. Nonexistence is established by theorem hypotheses,
+    # not inferred from a failed optimization run. The implication-side witness
+    # is written as its own replayable exact proof bundle.
+    implication_bundle=AuditSOS.exact_forward_implication_witness()
+    @assert implication_bundle["verification"]["verified"]
+    write_json(joinpath(out,"ImplicationGap1D_forward_implication_ibc_analytical.json"),implication_bundle)
+    complementarity=AuditSOS.complementarity_report()
+    @assert complementarity["verified"]
+    write_json(joinpath(out,"complementarity_report.json"),complementarity)
+    println("COMPLEMENTARITY_REPORT ",JSON3.write(complementarity))
+
     compact=[Dict(k=>r[k] for k in ("problem","family","degree","components","status","experiment","termination_status") if haskey(r,k)) for r in results]
-    metadata["scope"]="four synthesis problems; scalar baselines; two finite-order witnesses"
+    metadata["scope"]="four synthesis problems; scalar baselines; two finite-order witnesses; exact analytical complementarity evidence"
+    metadata["complementarity_evidence"]="complementarity_report.json"
+    metadata["implication_proof_bundle"]="ImplicationGap1D_forward_implication_ibc_analytical.json"
     write_json(joinpath(out,"reviewer_summary.json"),Dict("metadata"=>metadata,"results"=>compact))
     println("REVIEWER_SUMMARY ",JSON3.write(compact))
-    # The manuscript's fixed table is a regression assertion, not a blanket
-    # acceptance of an arbitrary solver result. New exploratory configurations
-    # should retain their statuses separately instead of rewriting this table.
+    # The manuscript's fixed numerical table is a regression assertion, not a
+    # blanket acceptance of an arbitrary solver result. The analytical
+    # complementarity report is checked independently by the release contract.
     accepted=count(r->r["status"]=="EXACT_RATIONAL_VERIFIED",compact)
     accepted==22 || error("Published reviewer table changed: expected 22 exact-positive rows, got $accepted")
 end

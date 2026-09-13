@@ -1,5 +1,5 @@
 """Release checks are separate from mathematical verification. They bind the
-fixed reviewer scope and immutable archived evidence, without changing proofs.
+reviewer scope and immutable archived evidence, without changing proofs.
 """
 module ReviewerRelease
 using SHA, TOML
@@ -12,6 +12,7 @@ const NEGATIVE = "NO_CERTIFIED_CANDIDATE"
 const SCALAR = "scalar_baseline"
 const ANALYTICAL = "analytical_structural_witness_not_free_SDP"
 const ABLATION = "normalization_ablation_not_legacy_collocation_reproduction"
+const FIXED_TITLE = "Duality and Complementarity of Vector and Interpolation-Inspired Barrier Certificates for Safety Verification: Toward Reduced Conservatism and Complexity"
 
 canonical_text(path) = replace(read(path, String), "\r\n" => "\n")
 function git_blob_hash(path)
@@ -21,9 +22,41 @@ end
 function contract(root=ROOT)
     return TOML.parsefile(joinpath(root, "docs", "REVIEWER_RELEASE.toml"))
 end
+function check_complementarity(report)
+    get(report,"schema","")=="dt-vbc-ibc-complementarity-report-v1" || error("Unknown complementarity schema")
+    get(report,"verified",false)==true || error("Complementarity report not verified")
+    String(report["title"])==FIXED_TITLE || error("Fixed paper title changed")
+    rotations=report["rotation_degree_separation"]
+    length(rotations)==2 || error("Expected two rotation degree-separation cases")
+    for r in rotations
+        String(r["problem"]) in ("Rotation2","Rotation4") || error("Unexpected rotation case")
+        Int(r["vbc"]["minimum_degree"])==1 || error("Rotation VBC degree regression")
+        Int(r["ibc"]["minimum_degree"])==2 || error("Rotation IBC degree regression")
+        get(r["ibc"],"affine_excluded_by_orbit_average_theorem",false)==true || error("Missing affine IBC obstruction")
+        get(r,"obstruction_hypotheses_verified",false)==true || error("Rotation obstruction hypotheses not verified")
+    end
+    gap=report["implication_gap"]
+    String(gap["problem"])=="ImplicationGap1D" || error("Wrong implication-gap benchmark")
+    Int(gap["implication_ibc"]["degree"])==1 || error("Affine implication IBC missing")
+    get(gap["implication_ibc"],"identity_verified",false)==true || error("Implication identity not verified")
+    String(gap["implication_ibc"]["exact_replay_status"])==POSITIVE || error("Implication exact replay missing")
+    get(gap["affine_global_vbc_obstruction"],"verified_hypotheses",false)==true || error("Affine VBC obstruction hypotheses missing")
+    String(gap["affine_global_vbc_obstruction"]["weighted_state"][1])=="-1//2" || error("Obstruction initial barycenter changed")
+    String(gap["affine_global_vbc_obstruction"]["weighted_image"][1])=="1//4" || error("Obstruction unsafe barycenter changed")
+    Int(gap["global_vbc_recovery"]["degree"])==4 || error("Quartic recovery witness missing")
+    get(gap["global_vbc_recovery"],"propagation_identity_verified",false)==true || error("Quartic identity not verified")
+    profiles=report["complexity_accounting"]
+    length(profiles)==3 || error("Complexity accounting changed")
+    bydegree=Dict(Int(p["certificate_degree"])=>p for p in profiles)
+    Int(bydegree[2]["dense_coefficients_per_component"])==28 || error("Degree-two count changed")
+    Int(bydegree[4]["dense_coefficients_per_component"])==210 || error("Degree-four count changed")
+    Int(bydegree[2]["symmetric_gram_entries"])==406 || error("Degree-two Gram count changed")
+    Int(bydegree[4]["symmetric_gram_entries"])==22155 || error("Degree-four Gram count changed")
+    return true
+end
 function check_inputs(root=ROOT)
     spec = contract(root)
-    spec["schema"] == "scl-reviewer-release-v1" || error("Unknown release contract")
+    spec["schema"] == "scl-reviewer-release-v2" || error("Unknown release contract")
     for (path, expected) in spec["science_blobs"]
         git_blob_hash(joinpath(root, path)) == expected || error("Frozen scientific input changed: $path")
     end
@@ -43,7 +76,10 @@ function check_inputs(root=ROOT)
         bytes2hex(sha256(read(joinpath(dirname(index_path), name)))) == item["sha256"] ||
             error("Archive digest mismatch: $name; use the documented checkout diagnosis, never replace expected hashes")
     end
-    println("RELEASE_INPUTS_VERIFIED: ", length(spec["science_blobs"]), " scientific files; ", length(names), " archived digests.")
+    cpath=joinpath(root,"evidence","complementarity","complementarity_report.json")
+    bytes2hex(sha256(read(cpath))) == spec["complementarity_evidence_sha256"] || error("Complementarity evidence bytes changed")
+    check_complementarity(JSON3.read(read(cpath,String)))
+    println("RELEASE_INPUTS_VERIFIED: ", length(spec["science_blobs"]), " scientific files; ", length(names), " archived digests; complementarity evidence verified.")
     return true
 end
 function expected_rows()
@@ -75,9 +111,12 @@ function check_rows(rows)
     println("REVIEWER_TABLE_VERIFIED: 16 multi-function, 4 scalar, 2 analytical, 1 intentional negative row.")
     return true
 end
-function check_generated(out, replay)
+function check_generated(out, replay, implication_replay)
     summary = JSON3.read(read(joinpath(out, "reviewer_summary.json"), String))
     check_rows(summary["results"])
+    comp_path=joinpath(out,"complementarity_report.json")
+    isfile(comp_path) || error("Missing generated complementarity report")
+    check_complementarity(JSON3.read(read(comp_path,String)))
     expected = Set{String}()
     for problem in PROBLEMS, family in FAMILIES
         push!(expected, "$(problem)_$(family)_free_certificate.json")
@@ -100,7 +139,11 @@ function check_generated(out, replay)
         end
     end
     found == expected || error("Missing generated proof bundles: $(setdiff(expected, found))")
-    println("CURRENT_RUN_REPLAY_VERIFIED: ", length(found), " freshly generated proof bundles, including all transports.")
+    implication_path=joinpath(out,"ImplicationGap1D_forward_implication_ibc_analytical.json")
+    isfile(implication_path) || error("Missing generated implication proof bundle")
+    implication=JSON3.read(read(implication_path,String))
+    implication_replay(implication)["verified"] || error("Generated implication proof replay failed")
+    println("CURRENT_RUN_REPLAY_VERIFIED: ", length(found), " globally scaled/VBC bundles plus one implication-IBC bundle; all transports and complementarity evidence verified.")
     return true
 end
 end
@@ -110,6 +153,6 @@ if abspath(PROGRAM_FILE) == @__FILE__
     if !isempty(ARGS)
         length(ARGS) == 1 || error("Pass at most one current-results directory")
         include(joinpath(@__DIR__, "..", "src", "AuditSOS.jl"))
-        ReviewerRelease.check_generated(abspath(ARGS[1]), AuditSOS.verify_bundle)
+        ReviewerRelease.check_generated(abspath(ARGS[1]), AuditSOS.verify_bundle, AuditSOS.verify_implication_bundle)
     end
 end

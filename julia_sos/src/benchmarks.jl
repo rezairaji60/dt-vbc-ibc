@@ -1,7 +1,19 @@
 # Versioned, exact definitions. See docs/BENCHMARK_PROVENANCE.md.
-const EXTRA_CASES = ("BB_rotation", "Logistic_adapted", "Rotation2", "Rotation4")
+const EXTRA_CASES = ("BB_rotation", "Logistic_adapted", "Rotation2", "Rotation4", "ImplicationGap1D")
 function benchmark(name::AbstractString)
     name in EXTRA_CASES || return legacy_benchmark(name)
+    if name == "ImplicationGap1D"
+        # Keep the scalar case on an explicit scalar polynomial variable. This
+        # avoids platform-specific behavior in runtime-sized @polyvar arrays
+        # while preserving the exact one-dimensional mathematical problem.
+        @polyvar z
+        x=[z]
+        f=[z*(z+1)/2]
+        X=box([(-1,1)])
+        X0=box([(-3//5,-2//5)])
+        Xu=box([(1//4,1//3)])
+        return (;name=String(name),x,f=[qpoly(p,x) for p in f],X,X0,Xu)
+    end
     n = name == "Rotation4" ? 4 : 2
     @polyvar x[1:n]
     if name == "BB_rotation"
@@ -18,7 +30,7 @@ function benchmark(name::AbstractString)
         X0=box([(1//10,3//10),(1//5,2//5)])
         Xu=box([(4//5,1),(4//5,1)])
     else
-        # Author-constructed obstruction, not a literature benchmark.
+        # Author-constructed finite-order obstruction, not a literature benchmark.
         f=[isodd(i) ? -x[i+1] : x[i-1] for i in 1:n]
         X=box(fill((-2,2),n))
         X0=box([isodd(i) ? (9//10,11//10) : (-1//10,1//10) for i in 1:n])
@@ -38,6 +50,13 @@ function domain_audit(P)
     elseif P.name=="Logistic_adapted"
         @assert rat(16//5)/4<1 && rat(14//5)/4<1
         return Dict("status"=>"EXACT_INVARIANT","proof"=>"For x in [0,1], 0 <= r*x*(1-x) <= r/4.","image_bounds"=>[["0//1","4//5"],["0//1","7//10"]],"initial_box_invariant"=>false)
+    elseif P.name=="ImplicationGap1D"
+        x=P.x[1]; f=P.f[1]
+        @assert iszero(f + rat(1//8) - (2*x+1)^2/8)
+        @assert iszero(1-f - (1-x)*(x+2)/2)
+        return Dict("status"=>"EXACT_INVARIANT",
+            "proof"=>"f(x)+1/8=(2x+1)^2/8 and 1-f(x)=(1-x)(x+2)/2 on [-1,1].",
+            "image_bounds"=>["-1//8","1//1"],"initial_box_invariant"=>false)
     else
         return Dict("status"=>"EXACT_INVARIANT","proof"=>"Signed coordinate permutation maps the box onto itself; f^4=identity.","initial_box_invariant"=>false,"period_divides"=>4)
     end

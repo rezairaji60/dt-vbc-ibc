@@ -1,4 +1,5 @@
-# Archive checksums are over exact committed bytes on every operating system.
+# Evidence checksums are over exact committed bytes on every operating system.
 /evidence/reviewer/** -text
+/evidence/complementarity/** -text
 # Expand the commit identifier only when exporting a Git source archive.
 /SOURCE_REVISION.txt export-subst

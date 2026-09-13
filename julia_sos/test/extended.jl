@@ -60,3 +60,52 @@ end
     @test orbit_sum!=zeros(QQ,3,3)
     @test orbit_sum[3,3]==4
 end
+
+@testset "Complementary expressiveness: implication IBC versus global VBC" begin
+    P=benchmark("ImplicationGap1D")
+    @test length(P.x)==1
+    @test domain_audit(P)["status"]=="EXACT_INVARIANT"
+    report=exact_implication_gap()
+    @test report["verified"]
+    @test report["implication_ibc"]["degree"]==1
+    @test report["implication_ibc"]["identity_verified"]
+    @test report["implication_ibc"]["exact_replay_status"]=="EXACT_RATIONAL_VERIFIED"
+    bundle=exact_forward_implication_witness()
+    @test verify_implication_bundle(bundle)["verified"]
+    damaged=deepcopy(bundle)
+    damaged["frames"][1][1]["c"]="100//1"
+    @test !verify_implication_bundle(damaged)["verified"]
+    @test report["affine_global_vbc_obstruction"]["verified_hypotheses"]
+    @test report["affine_global_vbc_obstruction"]["weighted_state"]==["-1//2"]
+    @test report["affine_global_vbc_obstruction"]["weighted_image"]==["1//4"]
+    @test report["global_vbc_recovery"]["degree"]==4
+    @test report["global_vbc_recovery"]["propagation_identity_verified"]
+    bad=merge(P,(;Xu=AuditSOS.box([(2//5,1//2)])))
+    @test !affine_vbc_obstruction(bad,[[-1],[1]],rat.([3//4,1//4]))["verified_hypotheses"]
+end
+
+@testset "Tight rotation degree separation" begin
+    for name in ("Rotation2","Rotation4")
+        r=rotation_degree_report(name)
+        @test r["verified"]
+        @test r["vbc"]["minimum_degree"]==1
+        @test r["ibc"]["minimum_degree"]==2
+        @test r["ibc"]["quadratic_invariant"]
+        @test r["obstruction_hypotheses_verified"]
+    end
+end
+
+@testset "Transparent polynomial/SOS complexity accounting" begin
+    q2=complexity_profile(6,2,1;dynamics_degree=2)
+    q4=complexity_profile(6,4,1;dynamics_degree=2)
+    @test q2["dense_coefficients_per_component"]==28
+    @test q4["dense_coefficients_per_component"]==210
+    @test q2["degree_matched_dense_gram_dimension"]==28
+    @test q4["degree_matched_dense_gram_dimension"]==210
+    @test q2["symmetric_gram_entries"]==406
+    @test q4["symmetric_gram_entries"]==22155
+    full=complementarity_report()
+    @test full["verified"]
+    @test length(full["rotation_degree_separation"])==2
+    @test length(full["complexity_accounting"])==3
+end
