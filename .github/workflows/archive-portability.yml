@@ -36,3 +36,29 @@ jobs:
         run: julia --startup-file=no --project=julia_sos julia_sos/test/archive_portability.jl
       - name: Replay unchanged committed proofs
         run: julia --startup-file=no --project=julia_sos julia_sos/experiments/replay_all.jl
+  cleanup:
+    needs: archive
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - name: Remove only the merged portability work branch
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = 'fix/reviewer-archive-windows-bytes';
+            const p = (await github.rest.pulls.get({...context.repo, pull_number:2})).data;
+            if (!p.merged || p.head.ref !== branch || p.base.ref !== 'main' ||
+                p.head.repo.full_name !== context.repo.owner + '/' + context.repo.repo ||
+                p.merge_commit_sha !== context.sha) return;
+            try {
+              const r = (await github.rest.git.getRef({...context.repo, ref:'heads/' + branch})).data;
+              if (r.object.sha !== p.head.sha) throw new Error('Work branch moved after merge; refusing deletion.');
+              await github.rest.git.deleteRef({...context.repo, ref:'heads/' + branch});
+              core.notice('Deleted only the merged portability branch after Linux and Windows replay passed.');
+            } catch (e) {
+              if (e.status === 404) core.notice('Merged work branch already deleted.');
+              else throw e;
+            }
