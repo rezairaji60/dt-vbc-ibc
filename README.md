@@ -1,8 +1,18 @@
-# Vector and interpolation-inspired barrier certificates
+# Duality and complementarity of vector and interpolation-inspired barrier certificates
 
-Computational baseline for Majid and Vishnu's manuscript review. The proposed title is **Structural Relationships Between Vector and Interpolation-Inspired Barrier Certificates for Safety Verification**. Title and manuscript approval are author decisions; the computational freeze does not silently rewrite the paper.
+Computational and analytical baseline for the manuscript with fixed paper title:
 
-## Reproduce the frozen results
+**Duality and Complementarity of Vector and Interpolation-Inspired Barrier Certificates for Safety Verification: Toward Reduced Conservatism and Complexity**
+
+The repository separates three claims that must not be conflated:
+
+1. **Structural duality:** robust anchored full-domain globally scaled IBCs correspond to path-structured VBCs under the stated sign/scaling map. This exact conversion preserves polynomial degree and can transport an SOS proof without another SDP solve.
+2. **VBC-side complementarity:** on finite-order rotations, cyclic vector coupling admits affine VBCs while the orbit-average theorem excludes every affine implication IBC of finite length; an invariant quadratic IBC exists, so the minimum degrees are exactly 1 versus 2 in the stated classes.
+3. **IBC-side complementarity:** the author-constructed `ImplicationGap1D` example has an affine implication IBC, while a convex-combination theorem excludes every affine constant-comparison VBC, regardless of finite component count, on the fixed domain. A quartic scalar global VBC is verified as a recovery witness; degree four is an upper bound, not a minimum theorem.
+
+The scientific message is therefore not universal dominance and not that exact conversion reduces degree. The intended workflow is to identify whether a failed low-degree search is limited by the polynomial template or by the propagation structure, and to consider the complementary formulation before automatically increasing degree.
+
+## Reproduce the fixed computational evidence
 
 Use Julia **1.10.10** and Git. From the repository root, run:
 
@@ -10,45 +20,45 @@ Use Julia **1.10.10** and Git. From the repository root, run:
 julia --startup-file=no --project=julia_sos julia_sos/run_all.jl
 ```
 
-The `julia` executable in that command must report version 1.10.10. With a standalone Windows installation, use its executable directly:
+With a standalone Windows installation, invoke that executable directly. Do not update the pinned `Manifest.toml` merely to silence a version warning.
 
-```powershell
-& "C:\path\to\julia-1.10.10\bin\julia.exe" --startup-file=no --project=julia_sos julia_sos/run_all.jl
-```
+The command checks release fingerprints, runs scientific and portability tests, replays the immutable SOS archive, regenerates the fixed numerical table, verifies the analytical complementarity report, independently replays every fresh global-scaled/VBC SOS proof, and replays the separate affine implication-IBC proof bundle. It succeeds only after printing `REVIEWER_RELEASE_VERIFIED`.
 
-The command checks frozen inputs, runs the scientific and release tests, replays the committed archive, synthesizes all fixed cases, and independently replays every new proof. It succeeds only after printing `REVIEWER_RELEASE_VERIFIED`. A new run gets its own `julia_sos/results/run-*` directory; `LATEST_RUN.json` identifies the most recent completed run. The immutable archive is never overwritten. CSDP is the default SDP solver; no commercial solver license or repository secret is required.
-
-To check the committed proofs without another SDP solve:
+To check the original committed SOS proofs without another solve:
 
 ```sh
 julia --startup-file=no --project=julia_sos julia_sos/experiments/replay_all.jl
 ```
 
-Success is `ARCHIVE_REPLAY_VERIFIED: 36 proof bundles; all indexed SHA256 digests checked.` An older Windows checkout with changed line endings may need the one-time, backup-preserving repair in [Windows archive replay](docs/WINDOWS_ARCHIVE_REPLAY.md). Do not update dependencies or regenerate expected hashes to suppress an error.
+The original 36-proof archive remains immutable. The complementarity evidence is stored separately under `evidence/complementarity/`; it is analytical evidence, not a retroactive rewrite of the numerical archive.
 
 ## Results and limits
 
-The fixed table contains 16 degree-two multi-function cases, four degree-two scalar baselines, two exact analytical affine rotation witnesses, and one intentionally unsuccessful legacy-normalization ablation. Each positive certificate passes rational Gram-matrix and full-box residual verification with an established invariant domain. S2 uses the explicitly repaired domain. The logistic task is adapted, not a reproduction of a control-synthesis problem.
+The numerical table remains 23 identified rows: 16 degree-two multi-function successes, four degree-two scalar successes, two exact affine cyclic VBC witnesses, and one intentional normalization failure. The added complementarity report is intentionally separate from solver-result rows so that analytical nonexistence is never inferred from an optimizer failure.
 
-The representation theorem concerns robust anchored full-domain globally scaled IBCs. The separate finite-order degree argument concerns implication-style IBCs. The programs check concrete witnesses and regression identities, not the general theorem in a proof assistant. The four numerical problems also admit scalar certificates; they do not establish general vector superiority, optimized margins, or runtime/scalability rankings.
+The repository does **not** claim that lower polynomial degree always means lower wall-clock time. `complexity_profile` reports transparent dense monomial/Gram sizing only. Component count, multiplier degrees, sparsity, conditioning, and search strategy also determine cost.
+
+The affine VBC obstruction in `ImplicationGap1D` assumes a fixed verification domain and a constant nonnegative comparison matrix. State-dependent comparison maps or a changed domain are different certificate classes/problems. The finite-order rotation result excludes affine implication IBCs but not nonlinear frames. These boundaries are part of the paper story.
 
 ## Reviewer navigation
 
+- [Duality/complementarity statement and exact examples](docs/COMPLEMENTARITY.md)
 - [Freeze scope and paper handoff](docs/REPOSITORY_FREEZE.md)
 - [Execution evidence](docs/EXECUTION_EVIDENCE.md)
 - [Julia commands, outputs and interpretation](julia_sos/README.md)
 - [Benchmark provenance and prior-work limits](docs/BENCHMARK_PROVENANCE.md)
 - [Reviewer concern-to-evidence map](docs/REVIEWER_RESOLUTION.md)
-- [Manuscript compilation](paper/README.md) and [author checks](paper/AUTHOR_CHECKLIST.md)
+- [Finite-order IBC obstruction](docs/IMPLICATION_OBSTRUCTION.md)
+- [Manuscript handoff](paper/README.md) and [author checks](paper/AUTHOR_CHECKLIST.md)
 
-The original Python code and results are historical collocation, not current SOS evidence. Historical diagnostics are under `docs/history/`. No legacy values are substituted into the new table.
+Historical Python files are retained as collocation-era material and are not current SOS evidence. Historical diagnostics are under `docs/history/`.
+
+The repository remains private. For external review, export the complete source/evidence package or arrange authorized access. This baseline supports coauthor review; it is not an acceptance guarantee or a substitute for independent theorem/novelty review.
 
 ## Export for a reviewer without repository access
 
 ```sh
-git archive --format=zip --output=../SCL_reviewer_source.zip HEAD README.md .gitattributes SOURCE_REVISION.txt docs julia_sos evidence paper
+git archive --format=zip --output=../SCL_reviewer_source.zip HEAD README.md .gitattributes .github SOURCE_REVISION.txt docs julia_sos evidence paper
 ```
 
-Extract the ZIP and run the same command from its root. Git is used for isolated portability fixtures, not to access an account. `SOURCE_REVISION.txt` records the exported commit. The ZIP contains source, pinned environment, proofs and documentation; a results-only Actions artifact does not replace it. CI checks an exported copy as well as the Git checkout.
-
-The repository remains private. Send the source ZIP or arrange authorized access for external reviewers. This freeze is for coauthor review, not a journal submission, licensing grant, independent novelty approval, or acceptance guarantee.
+The exported package is checked by CI without a source `.git` directory. It contains the release workflow as a provenance artifact; running the Julia verifier does not require a GitHub account.
