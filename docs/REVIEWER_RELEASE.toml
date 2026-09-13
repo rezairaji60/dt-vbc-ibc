@@ -12,7 +12,7 @@ required_documentation = ["README.md", "julia_sos/README.md", "docs/COMPLEMENTAR
 [science_blobs]
 "julia_sos/src/AuditSOS.jl" = "1590bb926a19c524c8e9a7558807924078981606"
 "julia_sos/src/benchmarks.jl" = "5bea613c8e468dc27becafbeaf16dac1548633d2"
-"julia_sos/src/complementarity.jl" = "90336e2c3ed9400ac01babfe158c0316aa3fd845"
+"julia_sos/src/complementarity.jl" = "c36ec2eec4d6912cd07cca55011d2ba0f00ac218"
 "julia_sos/src/exact.jl" = "309d25874e9169e0937abab80104302ec748c5d4"
 "julia_sos/src/implication.jl" = "4e21197aa8a9ef729dfc1c792338939b1e4450d9"
 "julia_sos/src/obligations.jl" = "9c9f9f903a5b88d702bd2974e35b9d1cad91ef61"
