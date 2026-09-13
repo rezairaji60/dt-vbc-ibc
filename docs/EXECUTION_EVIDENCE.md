@@ -1,48 +1,21 @@
-# Verified execution checkpoint
+# Execution evidence for the reviewer baseline
 
-First complete successful run: 34720696816 (2026-09-12).
-Source branch head: 2a94b08c6a89c07883d3d0e3384d454968ee52b8.
-GitHub PR test checkout: 292db55258d9daeb36aa43a1bc72a543fd5a688d.
-Base main: b2fbd9be3a8b5de0212dc86b88965f90d0c32257.
-Julia: 1.10.10; SDP solver: CSDP.
-Resolved Manifest SHA256: eca708ba661f0388f64026f04992f5b17a4d22e3d8c8455f64aac73980b76fa4.
+The current release command and requirements are in [REPOSITORY_FREEZE.md](REPOSITORY_FREEZE.md). The first simulation-only checkpoint is preserved in [history/INITIAL_SOS_CHECKPOINT.md](history/INITIAL_SOS_CHECKPOINT.md); its early test count and artifact-retention period are historical, not current instructions.
 
-Evidence: https://github.com/AC-Disaster-Consulting/Test/actions/runs/34720696816
-PR log: https://github.com/AC-Disaster-Consulting/Test/pull/1#issuecomment-5648891717
+## Immutable scientific archive
 
-## Results actually observed
+The original verified archive is committed under `evidence/reviewer/`, with 69 indexed files and 36 proof bundles. Its index SHA-256 is `bba014707d2252ec30bc24863204cc88fcd2ee5e96acec0d8c9ba24436224a29`. It was generated from source `fd820218a04ed0621bbc8bd5a20d51b53a6cdae4`, run `34746809943`. The archive includes the resolved environment, original logs and source identity. New runs do not replace these files or their checksums.
 
-- 40 tests passed, including a free scalar SOS synthesis plus exact replay.
-- S1: all four free, degree-two, three-function SOS searches were OPTIMAL and
-  EXACT_RATIONAL_VERIFIED.
-- S2_repaired: all four corresponding searches were OPTIMAL and
-  EXACT_RATIONAL_VERIFIED.
-- All eight accepted runs used separation 1/1000, an explicit SOS reserve of
-  1/1000000, order-three identities, and per-component coefficient l1 <= 1.
-- All eight accepted rationalized Gram representations were PSD without any
-  added diagonal shift (maximum shift 0).
-- Both IBC directions on both systems were transported to their corresponding
-  VBC proofs without solving a second SDP, and all four replays passed.
-- The S1 backward normalization ablation returned INFEASIBLE/INFEASIBLE_POINT
-  and did not produce a verified certificate. This is a solver outcome for that
-  particular restricted model, not a general theorem of nonexistence.
-- Four additional analytical S1 witnesses and their rational SOS identities
-  passed exact verification independently of numerical synthesis.
+## Fresh verification
 
-This checkpoint remains tied to the source/test commits above. Subsequent
-hardening changes must have their own successful CI run; this file does not
-claim that an untested later commit inherits execution status.
+The complete reviewer command checks frozen inputs, executes the tests, replays the archive, runs all fixed synthesis cases, and independently replays all freshly generated bundles. Its final marker is `REVIEWER_RELEASE_VERIFIED`. Every new run has a separate directory and current source/runtime metadata. The fixed numerical table has 16 multi-function cases and four scalar baselines, all exact-positive; two analytical structural witnesses are separate; the legacy normalization ablation remains an intentional negative.
 
-## Interpretation limits
+The archived scientific tests contain 85 passing assertions. The current command additionally executes checkout/repair and release-contract regression tests. Do not confuse repeated tests on two operating systems with additional mathematical results.
 
-The S2 dynamics, initial set and unsafe set were not changed. Only the verification
-box was enlarged from [-1.4,1.4] x [-1.2,1.2] to
-[-1.5,1.5] x [-1.2,1.2], with an exact invariant-domain proof.
-The original box is explicitly recorded as non-invariant.
+## Cross-platform evidence
 
-Raw optimize! timings contain first-call compilation and exclude model building
-and exact proof replay. They are not suitable for a performance comparison.
-The historical epsilon maxima have not been reproduced or endorsed.
+The Windows byte-preservation repair passed Linux and Windows in runs `34760382582` and `34760662764`. The full reviewer workflow also passed on the merged repair revision in run `34760662758`. The present release's CI checks the full entry point on both systems and an exported source copy. Read the current commit's Actions runs for its exact execution status; earlier successes do not certify later changes automatically.
 
-The full certificates, logs and generated Manifest are in the run artifact.
-GitHub artifact retention is 14 days; archive those files for any paper release.
+## Interpretation
+
+`EXACT_RATIONAL_VERIFIED` denotes verification by the supplied exact-arithmetic checker. It is not proof-assistant mechanization. `NO_CERTIFIED_CANDIDATE` is not an exact infeasibility theorem. Runtime values cover optimize! only and may include first-call compilation; they do not establish end-to-end rankings. Historical collocation margins are not current evidence. Reviewer access to a complete source/evidence package must accompany an external submission because the development repository remains private.

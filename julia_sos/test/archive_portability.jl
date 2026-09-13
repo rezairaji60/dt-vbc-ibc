@@ -5,10 +5,19 @@ using .ArchiveCheckoutRepair
 
 @testset "Byte-exact archive under Windows-style Git checkout" begin
     source = normpath(joinpath(@__DIR__,"..",".."))
-    revision = strip(read(`git -C $source rev-parse HEAD`, String))
     mktempdir() do temp
+        # Create a local fixture so the same test works from a source ZIP.
+        # No user Git history, credentials, remotes or global config is altered.
+        seed = joinpath(temp, "seed")
+        mkpath(joinpath(seed, "evidence"))
+        cp(joinpath(source, "evidence", "reviewer"), joinpath(seed, "evidence", "reviewer"))
+        cp(joinpath(source, ".gitattributes"), joinpath(seed, ".gitattributes"))
+        run(`git init --quiet $seed`)
+        run(`git -C $seed add .gitattributes evidence`)
+        run(`git -C $seed -c user.name=ReviewerFixture -c user.email=fixture@example.invalid -c commit.gpgsign=false commit --quiet -m fixture`)
+        revision = strip(read(`git -C $seed rev-parse HEAD`, String))
         clone = joinpath(temp,"clone")
-        run(`git clone --quiet --no-checkout --no-hardlinks $source $clone`)
+        run(`git clone --quiet --no-checkout --no-hardlinks $seed $clone`)
         run(`git -C $clone config core.autocrlf true`)
         run(`git -C $clone config core.eol crlf`)
         run(`git -C $clone -c advice.detachedHead=false checkout --quiet --detach $revision`)
@@ -32,8 +41,7 @@ using .ArchiveCheckoutRepair
         write(indexpath,ArchiveCheckoutRepair.crlf_expanded(original_index))
         diagnosis=ArchiveCheckoutRepair.repair(clone)
         @test diagnosis.changed == 2
-        @test read(firstpath) == converted # dry run never rewrites
-        # Arbitrary corruption elsewhere must cause zero repairs.
+        @test read(firstpath) == converted
         corrupted=copy(second); corrupted[1] = xor(corrupted[1],UInt8(1))
         write(secondpath,corrupted)
         @test_throws ErrorException ArchiveCheckoutRepair.repair(clone;apply=true)
@@ -47,7 +55,6 @@ using .ArchiveCheckoutRepair
         @test read(joinpath(repaired.backup,basename(firstpath))) == converted
         @test ArchiveCheckoutRepair.repair(clone;apply=true).repaired == 0
         rm(repaired.backup;recursive=true)
-        # Neither the committed archive nor any tracked scientific input changed.
         @test isempty(strip(read(`git -C $clone status --porcelain -- evidence/reviewer`,String)))
     end
 end

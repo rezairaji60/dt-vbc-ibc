@@ -2,7 +2,7 @@ using Dates, SHA
 import JSON3, Pkg
 include(joinpath(@__DIR__,"..","src","AuditSOS.jl"))
 using .AuditSOS
-out=joinpath(@__DIR__,"..","results")
+out=abspath(get(ENV,"AUDIT_OUTPUT_DIR",joinpath(@__DIR__,"..","results")))
 mkpath(out)
 metadata=Dict("timestamp_utc"=>string(now(UTC)),"julia"=>string(VERSION),
     "tested_sha"=>get(ENV,"GITHUB_SHA","local-unrecorded"),

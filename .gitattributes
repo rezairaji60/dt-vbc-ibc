@@ -1,3 +1,4 @@
-# SHA-256 evidence digests are over committed bytes, not normalized text.
-# Keep JSON, logs, and pinned environment copies byte-identical on every OS.
+# Archive checksums are over exact committed bytes on every operating system.
 /evidence/reviewer/** -text
+# Expand the commit identifier only when exporting a Git source archive.
+/SOURCE_REVISION.txt export-subst
