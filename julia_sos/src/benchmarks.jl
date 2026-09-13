@@ -2,7 +2,19 @@
 const EXTRA_CASES = ("BB_rotation", "Logistic_adapted", "Rotation2", "Rotation4", "ImplicationGap1D")
 function benchmark(name::AbstractString)
     name in EXTRA_CASES || return legacy_benchmark(name)
-    n = name == "Rotation4" ? 4 : name == "ImplicationGap1D" ? 1 : 2
+    if name == "ImplicationGap1D"
+        # Keep the scalar case on an explicit scalar polynomial variable. This
+        # avoids platform-specific behavior in runtime-sized @polyvar arrays
+        # while preserving the exact one-dimensional mathematical problem.
+        @polyvar z
+        x=[z]
+        f=[z*(z+1)/2]
+        X=box([(-1,1)])
+        X0=box([(-3//5,-2//5)])
+        Xu=box([(1//4,1//3)])
+        return (;name=String(name),x,f=[qpoly(p,x) for p in f],X,X0,Xu)
+    end
+    n = name == "Rotation4" ? 4 : 2
     @polyvar x[1:n]
     if name == "BB_rotation"
         # Exact published autonomous BarrierBench entry: no controller added.
@@ -17,14 +29,6 @@ function benchmark(name::AbstractString)
         X=box([(0,1),(0,1)])
         X0=box([(1//10,3//10),(1//5,2//5)])
         Xu=box([(4//5,1),(4//5,1)])
-    elseif name == "ImplicationGap1D"
-        # Author-constructed complementarity example. The implication-style IBC
-        # has an affine witness, whereas a convex-combination obstruction rules
-        # out every affine constant-comparison VBC, independent of component count.
-        f=[x[1]*(x[1]+1)/2]
-        X=box([(-1,1)])
-        X0=box([(-3//5,-2//5)])
-        Xu=box([(1//4,1//3)])
     else
         # Author-constructed finite-order obstruction, not a literature benchmark.
         f=[isodd(i) ? -x[i+1] : x[i-1] for i in 1:n]
