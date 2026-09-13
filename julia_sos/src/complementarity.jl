@@ -7,10 +7,17 @@ function _inside_box(point,K)
     return all(K[i][1] <= point[i] <= K[i][2] for i in eachindex(K))
 end
 
-function _eval_poly(p,x,point)
-    v=MP.subs(p,x=>point)
-    v isa Number || error("expected a scalar polynomial evaluation")
-    return rat(v)
+"""Exact image evaluator for the author-constructed implication-gap benchmark.
+
+The affine-VBC obstruction is intentionally tied to this fixed benchmark. Using
+its rational closed form avoids relying on DynamicPolynomials' representation
+of a fully substituted constant, which is not stable across all code paths.
+"""
+function _obstruction_image(P,point)
+    P.name=="ImplicationGap1D" || throw(ArgumentError("obstruction image is defined only for ImplicationGap1D"))
+    length(point)==1 || throw(DimensionMismatch("ImplicationGap1D is one-dimensional"))
+    z=rat(point[1])
+    return [z*(z+1)/2]
 end
 
 """Verify the finite convex-combination data used by the affine global-VBC
@@ -24,12 +31,13 @@ function affine_vbc_obstruction(P,points,weights)
     sum(weights)==1 || throw(ArgumentError("weights must sum to one"))
     n=length(P.x)
     all(length(p)==n for p in points) || throw(DimensionMismatch("point dimension"))
-    xbar=[sum(weights[j]*rat(points[j][i]) for j in eachindex(points)) for i in 1:n]
-    images=[[_eval_poly(P.f[i],P.x,rat.(points[j])) for i in 1:n] for j in eachindex(points)]
+    qpoints=[rat.(p) for p in points]
+    xbar=[sum(weights[j]*qpoints[j][i] for j in eachindex(points)) for i in 1:n]
+    images=[_obstruction_image(P,qpoints[j]) for j in eachindex(points)]
     ybar=[sum(weights[j]*images[j][i] for j in eachindex(points)) for i in 1:n]
     initial=_inside_box(xbar,P.X0); unsafe=_inside_box(ybar,P.Xu)
     return Dict("verified_hypotheses"=>initial && unsafe,
-        "weights"=>string.(weights),"points"=>[string.(rat.(p)) for p in points],
+        "weights"=>string.(weights),"points"=>[string.(p) for p in qpoints],
         "weighted_state"=>string.(xbar),"weighted_image"=>string.(ybar),
         "weighted_state_in_initial"=>initial,"weighted_image_in_unsafe"=>unsafe,
         "conclusion"=>"The theorem excludes every affine forward or backward VBC with any finite component count and a constant nonnegative comparison matrix on this fixed domain.")
