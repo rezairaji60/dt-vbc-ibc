@@ -5,7 +5,7 @@ on:
   pull_request:
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 concurrency:
   group: julia-sos-${{ github.ref }}
@@ -13,7 +13,7 @@ concurrency:
 jobs:
   audit:
     runs-on: ubuntu-22.04
-    timeout-minutes: 35
+    timeout-minutes: 40
     env:
       JULIA_NUM_THREADS: '2'
       OPENBLAS_NUM_THREADS: '1'
@@ -32,15 +32,48 @@ jobs:
         shell: bash
         run: |
           mkdir -p julia_sos/results
+          export GITHUB_SHA="$(git rev-parse HEAD)"
           set -o pipefail
           julia --project=julia_sos julia_sos/test/runtests.jl 2>&1 | tee julia_sos/results/tests.log
           julia --project=julia_sos julia_sos/test/extended.jl 2>&1 | tee julia_sos/results/extended.log
       - name: Reviewer experiments
         shell: bash
         run: |
+          export GITHUB_SHA="$(git rev-parse HEAD)"
           set -o pipefail
           julia --project=julia_sos julia_sos/experiments/run_reviewer.jl 2>&1 | tee julia_sos/results/audit.log
-      - name: Preserve evidence
+          if [ -f evidence/reviewer/artifact_index.json ]; then
+            julia --project=julia_sos julia_sos/experiments/replay_all.jl
+          fi
+      - name: Build Elsevier manuscript
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends texlive-latex-extra texlive-fonts-recommended texlive-publishers texlive-science
+          cd paper
+          pdflatex -interaction=nonstopmode -halt-on-error main.tex > build.log
+          bibtex main >> build.log
+          pdflatex -interaction=nonstopmode -halt-on-error main.tex >> build.log
+          pdflatex -interaction=nonstopmode -halt-on-error main.tex >> build.log
+          if grep -q 'undefined citations\|undefined references' main.log; then exit 1; fi
+      - name: Archive successful reviewer evidence once
+        if: success() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        shell: bash
+        run: |
+          if [ -f evidence/reviewer/artifact_index.json ]; then exit 0; fi
+          remote_head="$(git ls-remote origin "refs/heads/$HEAD_BRANCH" | cut -f1)"
+          test "$remote_head" = "$EXPECTED_HEAD"
+          julia --project=julia_sos julia_sos/experiments/archive_evidence.jl
+          julia --project=julia_sos julia_sos/experiments/replay_all.jl
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f evidence/reviewer julia_sos/Manifest.toml paper/main.pdf paper/main.bbl
+          git commit -m 'Archive tested reviewer proofs, pinned environment and manuscript [skip ci]'
+          git push origin "HEAD:$HEAD_BRANCH"
+      - name: Preserve evidence artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -49,6 +82,8 @@ jobs:
             julia_sos/Project.toml
             julia_sos/Manifest.toml
             julia_sos/results/
+            evidence/reviewer/
+            paper/
           retention-days: 90
       - name: Record concise execution evidence
         if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
@@ -56,7 +91,7 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const names = ['tests.log', 'extended.log', 'reviewer_summary.json'];
+            const names = ['tests.log','extended.log','reviewer_summary.json'];
             let body = '## Reviewer run\nSource: `' + context.payload.pull_request.head.sha + '`\nRun: ' + context.runId + '\n';
             for (const n of names) {
               const p = 'julia_sos/results/' + n;
