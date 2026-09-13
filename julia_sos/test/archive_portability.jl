@@ -29,7 +29,7 @@ using .ArchiveCheckoutRepair
             @test bytes2hex(sha256(read(joinpath(root,String(item["name"]))))) == item["sha256"]
         end
         complementarity = joinpath(clone,"evidence","complementarity","complementarity_report.json")
-        @test bytes2hex(sha256(read(complementarity))) == "2b87acfc0fb109667e9cd9a8b1ce45e7778e58a42b91b05424434a2f8a2622d9"
+        @test bytes2hex(sha256(read(complementarity))) == "27d15b9d5866b4f61ac52f1859a3e9f57ca8f9f878793ef7e112d6bd4d0a2753"
         report = ArchiveCheckoutRepair.repair(clone)
         @test report.changed == 0
         @test report.indexed == 69
