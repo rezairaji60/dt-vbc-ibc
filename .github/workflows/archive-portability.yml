@@ -1,0 +1,38 @@
+name: Reviewer archive portability
+on:
+  pull_request:
+    paths:
+      - '.gitattributes'
+      - '.github/workflows/archive-portability.yml'
+      - 'evidence/reviewer/**'
+      - 'julia_sos/experiments/repair_archive_checkout.jl'
+      - 'julia_sos/test/archive_portability.jl'
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  archive:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.10.10'
+      - uses: julia-actions/cache@v2
+        with:
+          delete-old-caches: 'false'
+      - name: Instantiate unchanged scientific environment
+        run: julia --project=julia_sos -e 'using Pkg; Pkg.instantiate()'
+      - name: Git checkout and repair regression tests
+        run: julia --startup-file=no --project=julia_sos julia_sos/test/archive_portability.jl
+      - name: Replay unchanged committed proofs
+        run: julia --startup-file=no --project=julia_sos julia_sos/experiments/replay_all.jl
