@@ -11,7 +11,7 @@ function rat(x::AbstractString)
     return parse(BigInt, v[1]) // parse(BigInt, v[2])
 end
 box(v) = [(rat(a), rat(b)) for (a,b) in v]
-function benchmark(name::AbstractString)
+function legacy_benchmark(name::AbstractString)
     @polyvar x[1:2]
     if name == "S1"
         f = [18//25*x[1] + 1//10*x[2] - 3//25*x[1]^3,
@@ -52,8 +52,7 @@ function frompolydata(data,x)
     return p
 end
 generators(x,K) = [(x[i]-K[i][1])*(K[i][2]-x[i]) for i in eachindex(x)]
-function domain_audit(P)
-    # The analytic domain proofs apply only to these exact, versioned problems.
+function legacy_domain_audit(P)
     reference=benchmark(P.name)
     sameboxes=P.X==reference.X && P.X0==reference.X0 && P.Xu==reference.Xu
     samedynamics=length(P.f)==length(reference.f) &&
@@ -62,7 +61,6 @@ function domain_audit(P)
         return Dict("status"=>"DOMAIN_NOT_ESTABLISHED", "proof"=>"Benchmark data changed; a fresh domain proof is required.")
     end
     if P.name == "S1"
-        # a(x)=.72-.12x^2 and d(y)=.68-.08y^2 are positive on X.
         amin = rat(18//25)-rat(3//25)*rat(7//5)^2
         dmin = rat(17//25)-rat(2//25)*rat(7//5)^2
         @assert amin > 0 && dmin > 0
@@ -71,7 +69,6 @@ function domain_audit(P)
         return Dict("status"=>"EXACT_INVARIANT", "image_abs_bounds"=>string.(bounds),
                     "initial_box_invariant"=>true, "proof"=>"Nonnegative diagonal factors and absolute row-sum bounds.")
     elseif P.name == "S2_repaired"
-        # df1/dx1 = 1.05-.3x1^2 > 0, df1/dx2=.18; f is odd.
         a,b = rat(3//2),rat(6//5)
         @assert rat(21//20)-rat(3//10)*a^2 > 0
         v = [rat(21//20)*a+rat(9//50)*b-rat(1//10)*a^3,

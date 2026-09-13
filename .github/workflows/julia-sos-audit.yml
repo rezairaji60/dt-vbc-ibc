@@ -1,9 +1,8 @@
 name: Julia SOS reviewer audit
 on:
+  push:
+    branches: [main]
   pull_request:
-    paths:
-      - 'julia_sos/**'
-      - '.github/workflows/julia-sos-audit.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -14,55 +13,54 @@ concurrency:
 jobs:
   audit:
     runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    timeout-minutes: 35
     env:
       JULIA_NUM_THREADS: '2'
       OPENBLAS_NUM_THREADS: '1'
       AUDIT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: julia-actions/setup-julia@v2
         with:
           version: '1.10.10'
       - uses: julia-actions/cache@v2
-      - name: Instantiate recorded Julia environment
+      - name: Instantiate environment
         run: julia --project=julia_sos -e 'using Pkg; Pkg.instantiate(); Pkg.precompile(); Pkg.status()'
-      - name: Exact proof tests and genuine SOS test
+      - name: Exact proof tests and SOS integration
         shell: bash
         run: |
           mkdir -p julia_sos/results
           set -o pipefail
           julia --project=julia_sos julia_sos/test/runtests.jl 2>&1 | tee julia_sos/results/tests.log
-      - name: Current-case synthesis and normalization ablation
+          julia --project=julia_sos julia_sos/test/extended.jl 2>&1 | tee julia_sos/results/extended.log
+      - name: Reviewer experiments
         shell: bash
         run: |
           set -o pipefail
-          julia --project=julia_sos julia_sos/experiments/run_audit.jl 2>&1 | tee julia_sos/results/audit.log
-      - name: Preserve reproducibility evidence
+          julia --project=julia_sos julia_sos/experiments/run_reviewer.jl 2>&1 | tee julia_sos/results/audit.log
+      - name: Preserve evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: julia-sos-audit-${{ github.sha }}
+          name: reviewer-evidence-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
             julia_sos/Project.toml
             julia_sos/Manifest.toml
             julia_sos/results/
-          retention-days: 14
-      - name: Record tested evidence on this private PR
+          retention-days: 90
+      - name: Record concise execution evidence
         if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const files = ['tests.log', 'audit.log', 'summary.json'];
-            const sections = [];
-            for (const file of files) {
-              const p = 'julia_sos/results/' + file;
-              if (fs.existsSync(p)) {
-                const text = fs.readFileSync(p, 'utf8').slice(-14000).replace(/```/g, '~~~');
-                sections.push('### ' + file + '\n```text\n' + text + '\n```');
-              }
+            const names = ['tests.log', 'extended.log', 'reviewer_summary.json'];
+            let body = '## Reviewer run\nSource: `' + context.payload.pull_request.head.sha + '`\nRun: ' + context.runId + '\n';
+            for (const n of names) {
+              const p = 'julia_sos/results/' + n;
+              if (fs.existsSync(p)) body += '\n### ' + n + '\n```text\n' + fs.readFileSync(p,'utf8').slice(-16000).replace(/```/g,'~~~') + '\n```\n';
             }
-            const head = context.payload.pull_request.head.sha;
-            const body = '## Julia audit execution evidence\nHead: `' + head + '`\nRun: ' + context.runId + '\n\n' + sections.join('\n\n');
-            await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
+            if (!fs.existsSync('julia_sos/results/reviewer_summary.json') && fs.existsSync('julia_sos/results/audit.log')) body += '\n```text\n' + fs.readFileSync('julia_sos/results/audit.log','utf8').slice(-10000) + '\n```';
+            await github.rest.issues.createComment({...context.repo, issue_number:context.issue.number, body});
