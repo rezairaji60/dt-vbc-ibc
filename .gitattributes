@@ -1,0 +1,3 @@
+# SHA-256 evidence digests are over committed bytes, not normalized text.
+# Keep JSON, logs, and pinned environment copies byte-identical on every OS.
+/evidence/reviewer/** -text
