@@ -1,23 +1,21 @@
-# Strengthened finite-order result
+# Finite-order IBC obstruction: the VBC-side complementarity result
 
-This supersedes the scaled-only scope used during the first implementation of the rotation examples. The proof is in `paper/main.tex`; exact SOS transport still concerns only the robust anchored global-scaled subclass.
+This document records one side of the complementary-expressiveness story. See `COMPLEMENTARITY.md` for the reverse implication-IBC advantage.
 
 ## Statement
 
-Let `f(x)=R*x`, `R^r=I`, `1` not an eigenvalue of R, and `R(X)=X`. For nonempty initial and unsafe sets, no finite forward or backward implication IBC with affine frames exists. The forward propagation may be restricted to `X minus Xu`, as in the supplied manuscript. No interior assumption or uniform negative margin is required for this obstruction.
+Let `f(x)=R*x`, `R^r=I`, `1` not an eigenvalue of R, and `R(X)=X`. For nonempty initial and unsafe sets as in the paper, no finite forward or backward implication IBC with affine frames exists. The forward propagation may be restricted to `X minus Xu`. No uniform negative propagation margin is required for this obstruction.
 
-## Proof
+## Proof mechanism
 
-For a forward IBC, the chain from an initial state produces a nonpositive value of the terminal frame p. Each active nonpositive frame excludes the unsafe set, so the next restricted-domain implication is valid. The terminal sublevel set S={x in X:p(x)<=0} is nonempty, disjoint from Xu, and forward invariant. Finite order makes R(S)=S.
+A forward IBC chain from an initial state creates a nonempty terminal nonpositive sublevel set, disjoint from the unsafe set and forward invariant. A backward IBC gives the analogous backward-invariant set. Finite order makes the corresponding set invariant over whole orbits.
 
-For a backward IBC, propagate from an unsafe state through successive preimages (R is bijective). The terminal sublevel set is nonempty, disjoint from X0, and backward invariant; finite order again makes R(S)=S.
+Because `(I-R)(I+R+...+R^(r-1))=0` and `I-R` is invertible, the orbit-sum matrix is zero. Every affine frame `p(x)=c'x+d` therefore has orbit average `d` on every orbit. One orbit must be nonpositive while another is strictly positive, forcing simultaneously `d<=0` and `d>0`, a contradiction.
 
-Thus one entire orbit is nonpositive and another is strictly positive. But `(I-R)*(I+R+...+R^(r-1))=0` and invertibility of I-R imply the matrix sum is zero. For any affine p(x)=c'x+d, the average of p on every orbit is therefore d. The nonpositive orbit gives d<=0; the positive orbit gives d>0, a contradiction.
+The tests verify the exact zero orbit-sum identity for the two- and four-dimensional rotations and a countercase with eigenvalue one. They check theorem hypotheses; they are not a proof-assistant formalization of the universal statement.
 
-The code tests the exact zero orbit-sum identity for the two/four-dimensional rotations and a countercase with eigenvalue one. These are algebraic regression checks, not a mechanized universal proof.
+## Tightness
 
-## Tightness and limits
+Exact cyclic affine VBCs exist. The invariant quadratic `x1^2+x2^2-3/2` supplies an IBC witness on both Rotation2 and Rotation4, with initial margin `7/25` and unsafe margin `3/4`. Hence the minimum degrees are exactly one for VBCs and two for implication/scaled IBCs on these examples.
 
-The existing cyclic facet witnesses have degree one and exact zero residual. No constant vector can separate nonempty sets. The invariant quadratic x1^2+x2^2-3/2 separates the chosen initial/unsafe boxes and supplies repeated frames in both directions. Hence the minimum degrees are one for VBCs and two for both implication and scaled IBCs on these examples.
-
-This says nothing about nonexistence of nonlinear frames, arbitrary-function certificates, broad numerical superiority or high-dimensional scalability. Coauthors should independently check the proof and its positioning against the original IBC and path-complete barrier literature before submission.
+This result does not imply that VBCs universally dominate IBCs. `ImplicationGap1D` supplies the opposite affine separation under the global constant-comparison VBC assumptions.
