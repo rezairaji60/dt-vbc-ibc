@@ -2,7 +2,7 @@ using Test
 import JSON3
 include(joinpath(@__DIR__, "..", "experiments", "release_check.jl"))
 using .ReviewerRelease
-@testset "Frozen reviewer scope rejects misleading success" begin
+@testset "Reviewer scope rejects misleading success" begin
     root = ReviewerRelease.ROOT
     @test ReviewerRelease.check_inputs(root)
     path = joinpath(root, "evidence", "reviewer", "reviewer_summary.json")
@@ -23,6 +23,12 @@ using .ReviewerRelease
     hidden_negative = deepcopy(rows)
     only(r for r in hidden_negative if r["status"] == ReviewerRelease.NEGATIVE)["status"] = ReviewerRelease.POSITIVE
     @test_throws ErrorException ReviewerRelease.check_rows(hidden_negative)
+    comp_path=joinpath(root,"evidence","complementarity","complementarity_report.json")
+    comp=JSON3.read(read(comp_path,String))
+    @test ReviewerRelease.check_complementarity(comp)
+    badcomp=Dict{String,Any}(string(k)=>v for (k,v) in pairs(comp))
+    badcomp["title"]="Duality only"
+    @test_throws ErrorException ReviewerRelease.check_complementarity(badcomp)
     mktempdir() do temp
         # LF/CRLF equivalence is allowed only for source-text fingerprints.
         a=joinpath(temp,"a"); b=joinpath(temp,"b")

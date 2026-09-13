@@ -11,6 +11,7 @@ using .ArchiveCheckoutRepair
         seed = joinpath(temp, "seed")
         mkpath(joinpath(seed, "evidence"))
         cp(joinpath(source, "evidence", "reviewer"), joinpath(seed, "evidence", "reviewer"))
+        cp(joinpath(source, "evidence", "complementarity"), joinpath(seed, "evidence", "complementarity"))
         cp(joinpath(source, ".gitattributes"), joinpath(seed, ".gitattributes"))
         run(`git init --quiet $seed`)
         run(`git -C $seed add .gitattributes evidence`)
@@ -27,6 +28,8 @@ using .ArchiveCheckoutRepair
         for item in index["files"]
             @test bytes2hex(sha256(read(joinpath(root,String(item["name"]))))) == item["sha256"]
         end
+        complementarity = joinpath(clone,"evidence","complementarity","complementarity_report.json")
+        @test bytes2hex(sha256(read(complementarity))) == "2b87acfc0fb109667e9cd9a8b1ce45e7778e58a42b91b05424434a2f8a2622d9"
         report = ArchiveCheckoutRepair.repair(clone)
         @test report.changed == 0
         @test report.indexed == 69
@@ -55,6 +58,6 @@ using .ArchiveCheckoutRepair
         @test read(joinpath(repaired.backup,basename(firstpath))) == converted
         @test ArchiveCheckoutRepair.repair(clone;apply=true).repaired == 0
         rm(repaired.backup;recursive=true)
-        @test isempty(strip(read(`git -C $clone status --porcelain -- evidence/reviewer`,String)))
+        @test isempty(strip(read(`git -C $clone status --porcelain -- evidence/reviewer evidence/complementarity`,String)))
     end
 end

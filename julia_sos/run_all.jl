@@ -37,5 +37,5 @@ open(joinpath(@__DIR__, "results", "LATEST_RUN.json"), "w") do io
     JSON3.write(io, Dict("status"=>"REVIEWER_RELEASE_VERIFIED", "source_commit"=>revision, "julia"=>string(VERSION), "directory"=>basename(out)))
     println(io)
 end
-println("\nREVIEWER_RELEASE_VERIFIED: fixed table, fresh proofs, immutable archive and portability tests passed.")
+println("\nREVIEWER_RELEASE_VERIFIED: fixed table, duality/complementarity evidence, fresh proofs, immutable archive and portability tests passed.")
 println("Current results: ", out)
