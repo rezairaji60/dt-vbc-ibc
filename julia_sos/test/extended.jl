@@ -10,8 +10,8 @@ using .AuditSOS
         @test domain_audit(bad)["status"]=="DOMAIN_NOT_ESTABLISHED"
     end
     P=benchmark("BB_rotation");x,y=P.x
-    @test iszero(P.f[1]+x*0+y/100)
-    @test iszero(P.f[2]-x/100)
+    @test iszero(P.f[1]+rat(1//100)*y)
+    @test iszero(P.f[2]-rat(1//100)*x)
     @test P.X0==AuditSOS.box([(1//10,2//5),(1//10,11//20)])
     P=benchmark("Logistic_adapted")
     @test iszero(compose(P.f[1],P.x,[rat(1//2),rat(1//2)])-rat(4//5))
