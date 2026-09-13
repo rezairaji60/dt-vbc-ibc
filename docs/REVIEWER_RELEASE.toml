@@ -11,7 +11,7 @@ required_documentation = ["README.md", "julia_sos/README.md", "docs/COMPLEMENTAR
 # Git blob IDs after canonical LF normalization, for cross-platform source checks.
 [science_blobs]
 "julia_sos/src/AuditSOS.jl" = "1590bb926a19c524c8e9a7558807924078981606"
-"julia_sos/src/benchmarks.jl" = "63ef9120c0025a49069511ff318c1e9ef61b0d0c"
+"julia_sos/src/benchmarks.jl" = "5bea613c8e468dc27becafbeaf16dac1548633d2"
 "julia_sos/src/complementarity.jl" = "90336e2c3ed9400ac01babfe158c0316aa3fd845"
 "julia_sos/src/exact.jl" = "309d25874e9169e0937abab80104302ec748c5d4"
 "julia_sos/src/implication.jl" = "177764c72a678d8b8db400aa040d8feaafd84baf"
