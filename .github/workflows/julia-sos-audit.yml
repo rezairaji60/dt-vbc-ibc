@@ -99,3 +99,22 @@ jobs:
             }
             if (!fs.existsSync('julia_sos/results/reviewer_summary.json') && fs.existsSync('julia_sos/results/audit.log')) body += '\n```text\n' + fs.readFileSync('julia_sos/results/audit.log','utf8').slice(-10000) + '\n```';
             await github.rest.issues.createComment({...context.repo, issue_number:context.issue.number, body});
+      - name: Remove only the reviewed merged work branch
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Explicitly authorized cleanup for this research PR, not a generic
+            // branch deletion policy. Never delete a ref moved after the merge.
+            const p = (await github.rest.pulls.get({...context.repo, pull_number:1})).data;
+            const branch = 'fix/scl-julia-sos-audit';
+            if (!p.merged || p.head.ref !== branch || p.base.ref !== 'main' || p.head.repo.full_name !== context.repo.owner + '/' + context.repo.repo) return;
+            try {
+              const r = (await github.rest.git.getRef({...context.repo, ref:'heads/' + branch})).data;
+              if (r.object.sha !== p.head.sha) throw new Error('Merged branch moved; refusing deletion.');
+              await github.rest.git.deleteRef({...context.repo, ref:'heads/' + branch});
+              core.notice('Deleted only merged branch ' + branch + ' after main passed.');
+            } catch (e) {
+              if (e.status === 404) core.notice('Merged branch already deleted.');
+              else throw e;
+            }
