@@ -1,0 +1,11 @@
+Test Summary:                                       | Pass  Total  Time
+Exact arithmetic verifier rejects invalid witnesses |    6      6  1.4s
+Test Summary:            | Pass  Total  Time
+Domains and trajectories |    8      8  9.7s
+Test Summary:                                | Pass  Total  Time
+Exact S1 proofs, replay and tamper rejection |   12     12  9.6s
+Test Summary:                                            | Pass  Total  Time
+IBC mapping, including reciprocal and terminal self-loop |   12     12  0.9s
+Test Summary:        | Pass  Total   Time
+Real SDP/SOS runtime |    7      7  27.9s
+::notice title=Julia tests::Exact proofs, domain checks, mappings, tamper rejection and genuine SOS tests passed.

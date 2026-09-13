@@ -1,0 +1,78 @@
+\renewcommand{\bibfont}{\small}\setlength{\bibsep}{2pt}
+\begin{thebibliography}{10}
+\expandafter\ifx\csname url\endcsname\relax
+  \def\url#1{\texttt{#1}}\fi
+\expandafter\ifx\csname urlprefix\endcsname\relax\def\urlprefix{URL }\fi
+\expandafter\ifx\csname href\endcsname\relax
+  \def\href#1#2{#2} \def\path#1{#1}\fi
+
+\bibitem{sogokon}
+A.~Sogokon, K.~Ghorbal, Y.~K. Tan, A.~Platzer, Vector barrier certificates and
+  comparison systems, in: Formal Methods, Vol. 10951 of LNCS, Springer, 2018,
+  pp. 418--437.
+\newblock \href {https://doi.org/10.1007/978-3-319-95582-7_25}
+  {\path{doi:10.1007/978-3-319-95582-7_25}}.
+
+\bibitem{oumer}
+M.~A. Oumer, V.~Murali, A.~Trivedi, M.~Zamani, Safety verification of
+  discrete-time systems via interpolation-inspired barrier certificates, IEEE
+  Control Systems Letters 8 (2024) 3183--3188.
+\newblock \href {https://doi.org/10.1109/LCSYS.2024.3521356}
+  {\path{doi:10.1109/LCSYS.2024.3521356}}.
+
+\bibitem{anand}
+M.~Anand, R.~Jungers, M.~Zamani, F.~Allg{\"o}wer,
+  \href{https://arxiv.org/abs/2503.19561}{On the completeness and ordering of
+  path-complete barrier functions}, arXiv:2503.19561 (2025).
+\newline\urlprefix\url{https://arxiv.org/abs/2503.19561}
+
+\bibitem{peyrl}
+H.~Peyrl, P.~A. Parrilo, Computing sum of squares decompositions with rational
+  coefficients, Theoretical Computer Science 409~(2) (2008) 269--281.
+\newblock \href {https://doi.org/10.1016/j.tcs.2008.09.025}
+  {\path{doi:10.1016/j.tcs.2008.09.025}}.
+
+\bibitem{barrierbench}
+A.~Taheri, A.~Taban, S.~Soudjani, A.~Trivedi,
+  \href{https://proceedings.mlr.press/v331/taheri26a.html}{{BarrierBench}:
+  Evaluating large language models for safety verification in dynamical
+  systems}, in: Proceedings of the 8th Annual Learning for Dynamics and Control
+  Conference, Vol. 331 of Proceedings of Machine Learning Research, 2026, pp.
+  640--661.
+\newline\urlprefix\url{https://proceedings.mlr.press/v331/taheri26a.html}
+
+\bibitem{data}
+{HyCoDeV}, \href{https://hycodev.com/data/BarrierBench.json}{{BarrierBench}
+  dataset}, accessed September 13, 2026; source-matched and adapted entries are
+  distinguished in the artifact (2026).
+\newline\urlprefix\url{https://hycodev.com/data/BarrierBench.json}
+
+\bibitem{sos}
+{JuMP and SumOfSquares.jl contributors},
+  \href{https://jump.dev/SumOfSquares.jl/stable/}{{SumOfSquares.jl}: polynomial
+  optimization and sum-of-squares modeling}, software documentation; resolved
+  versions are recorded in the artifact (2026).
+\newline\urlprefix\url{https://jump.dev/SumOfSquares.jl/stable/}
+
+\bibitem{csdp}
+B.~Borchers, {CSDP}, a {C} library for semidefinite programming, Optimization
+  Methods and Software 11 (1999) 613--623.
+\newblock \href {https://doi.org/10.1080/10556789908805765}
+  {\path{doi:10.1080/10556789908805765}}.
+
+\bibitem{may}
+R.~M. May, Simple mathematical models with very complicated dynamics, Nature
+  261 (1976) 459--467.
+\newblock \href {https://doi.org/10.1038/261459a0}
+  {\path{doi:10.1038/261459a0}}.
+
+\bibitem{arch}
+L.~Geretti, J.~A.~D. Sandretto, M.~Althoff, L.~Benet, P.~Collins, M.~Forets,
+  S.~Mitsch, I.~Patel, M.~Perschl, C.~Schilling, J.~Tillet, {ARCH-COMP25}
+  category report: Continuous and hybrid systems with nonlinear dynamics, in:
+  Proceedings of the 12th International Workshop on Applied Verification for
+  Continuous and Hybrid Systems, Vol. 108 of EPiC Series in Computing, 2025,
+  pp. 39--70.
+\newblock \href {https://doi.org/10.29007/7br2} {\path{doi:10.29007/7br2}}.
+
+\end{thebibliography}
