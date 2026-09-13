@@ -10,7 +10,7 @@ The original verified archive is committed under `evidence/reviewer/`, with 69 i
 
 `evidence/complementarity/complementarity_report.json` records deterministic analytical data for the two fixed-degree separation arguments and the transparent complexity counts. The release contract fingerprints its exact bytes and reconstructs its identities/hypotheses from source.
 
-Each fresh reviewer run additionally creates `ImplicationGap1D_forward_implication_ibc_analytical.json`. This is a distinct exact implication-IBC proof schema. The replay reconstructs the initial/unsafe separation targets, the box generator, the antecedent generator `-b`, all exact PSD Gram blocks, and the residual in rational arithmetic. This is fixed-certificate implication verification; it is deliberately not represented as a convex free-synthesis result.
+Each fresh reviewer run additionally creates `ImplicationGap1D_forward_implication_ibc_analytical.json`. This is a distinct exact implication-IBC proof schema. The replay reconstructs the fixed affine frame, robust separation margins, invariant domain, box/antecedent generators, and the displayed conditional SOS decomposition in exact rational polynomial arithmetic. This is fixed-certificate implication verification; it is deliberately not represented as a convex free-synthesis result.
 
 ## Fresh verification
 
